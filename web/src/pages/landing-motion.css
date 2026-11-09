@@ -34,7 +34,7 @@
 .reel.l { --rs: calc(1.1 - var(--q) * .25); } .reel.r { --rs: calc(.82 + var(--q) * .3); } .reel i { font-style: normal; color: #17171b; font-size: clamp(.8rem, 1.6vw, 1.3rem); line-height: 1; }
 .c-keys { position: absolute; left: 50%; bottom: 6%; translate: -50% 0; display: flex; gap: 14px; } .c-keys u { display: block; width: clamp(18px, 3vw, 30px); height: 12px; background: #3a3a42; border-radius: 2px; text-decoration: none; transition: background .3s; } .c-keys u.on { background: var(--accent); }
 .tape-copy { display: grid; gap: 10px; align-content: center; } .tape-n { margin-left: 10px; color: var(--accent); }
-.tape-num { font: 800 clamp(4.4rem, 13vw, 9.5rem)/.95 var(--display); font-stretch: 125%; letter-spacing: -.03em; background: linear-gradient(#fff 20%, #8a8a94); -webkit-background-clip: text; background-clip: text; color: transparent; animation: roll .5s var(--ease); }
+.tape-num { font: 800 clamp(4.4rem, 13vw, 9.5rem)/.95 var(--display); font-stretch: 125%; letter-spacing: -.03em; background: linear-gradient(var(--fg) 25%, var(--muted)); -webkit-background-clip: text; background-clip: text; color: transparent; animation: roll .5s var(--ease); }
 .tape-copy h3 { font: 700 clamp(1.2rem, 2.3vw, 1.9rem)/1.1 var(--display); margin: 0; animation: roll .5s var(--ease); } .tape-p { color: var(--muted); max-width: 40ch; margin: 0; animation: roll .6s var(--ease); }
 @keyframes roll { from { transform: translateY(28%); opacity: 0; } }
 .tape-bar { position: relative; padding: 0 clamp(16px, 2.4vw, 32px) 26px; border-top: 1px solid var(--line); margin: 0 clamp(16px, 2.4vw, 32px); }
