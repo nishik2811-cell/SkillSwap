@@ -1,4 +1,3 @@
-import { sound, useSound } from '../sound.js';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
@@ -15,8 +14,7 @@ export const Avatar = ({ user, big }) => user?.avatarUrl
 export function Nav() {
   const { user, logout } = useAuth(); const social = useSocial();
   const [theme, toggleTheme] = useTheme();
-  const soundOn = useSound();
-  const themeBtn = <><button className="theme-pill" onClick={() => sound.toggle()} aria-pressed={soundOn}>Sound <i /></button><button className="theme-pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button></>;
+  const themeBtn = <button className="theme-pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>;
   const n = social?.unread || 0, req = social?.conn.received.length || 0;
   return (
     <header className="nav"><div className="wrap">

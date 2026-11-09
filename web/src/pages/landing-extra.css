@@ -1,17 +1,4 @@
 /* Additions after the reference recording: entry gate, DRAG chip, macro grooves, flat ring-text record. */
-.gate { position: fixed; inset: 0; z-index: 100; background: #0c0b0f; color: #ecebe4; display: grid; grid-template-rows: auto 1fr auto; padding: 18px clamp(16px, 2.4vw, 32px); transition: opacity .5s var(--ease, ease), transform .5s var(--ease, ease); --accent: #5b6bff; --muted: #8f8b98; --mono: 'JetBrains Mono Variable', ui-monospace, monospace; --display: 'Archivo Variable', 'Arial Black', sans-serif; }
-.gate.out { opacity: 0; transform: scale(1.03); pointer-events: none; }
-.gate-top, .gate-bot { display: flex; justify-content: space-between; } .gate-bot { justify-content: flex-end; }
-.gate .moa-mono { font: 400 .74rem/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); } .gate .dim { opacity: .7; }
-.gate-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; }
-.gate-disc { width: 84px; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #5b6bff 0 22%, #050407 23% 25%, #1a1a20 26% 100%); box-shadow: 0 8px 30px rgba(0, 0, 0, .6), inset 0 0 0 2px #2a2a31; animation: gspin 2.4s linear infinite; }
-.gate h1 { font: 800 clamp(3.2rem, 13vw, 9.5rem)/.86 var(--display); font-stretch: 125%; text-transform: uppercase; letter-spacing: -.02em; margin: 6px 0; color: #ecebe4; }
-.gate-actions { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
-.gate-btn { font: 400 .8rem var(--mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; color: inherit; background: none; border: 0; }
-.gate-btn.solid { background: #ecebe4; color: #0c0b0f; padding: 14px 24px; border-radius: 999px; box-shadow: 0 0 0 2px #0c0b0f, 0 0 0 3px var(--accent); transition: transform .2s; } .gate-btn.solid:hover { transform: scale(1.04); }
-.gate-btn.line { padding: 6px 2px; border-bottom: 1px solid currentColor; opacity: .75; } .gate-btn.line:hover { opacity: 1; }
-.gate-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-@keyframes gspin { to { transform: rotate(360deg); } }
 
 .drag-chip { position: fixed; left: 0; top: 0; z-index: 60; width: 58px; height: 58px; border-radius: 50%; background: #ecebe4; color: #0c0b0f; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .18s, scale .18s; font: 400 .6rem var(--mono, monospace); letter-spacing: .1em; text-transform: uppercase; will-change: transform; }
 .drag-chip::before { content: attr(data-t); } .drag-chip.show { opacity: 1; } .drag-chip[data-t='SCRATCH'] { scale: 1.18; }
@@ -31,4 +18,4 @@ body.has-chip .vinyl-disc { cursor: none; }
 .about-lead { font: 600 clamp(1.1rem, 2vw, 1.5rem)/1.15 var(--display); max-width: 18ch; }
 .about-h { font: 600 clamp(1.8rem, 4.6vw, 3.4rem)/1.04 var(--display); text-transform: none; letter-spacing: -.02em; font-stretch: 100%; max-width: 22ch; } .about-h em { font-style: normal; font-stretch: 70%; color: var(--accent); }
 @keyframes aspin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gate-disc, .about-record { animation: none; } .gate, .drag-chip { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .about-record { animation: none; } .drag-chip { transition: none; } }

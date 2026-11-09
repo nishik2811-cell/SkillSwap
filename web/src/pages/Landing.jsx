@@ -4,13 +4,11 @@ import { useAuth } from '../auth.jsx';
 import { useSkills } from '../lib.js';
 import { useTheme } from '../theme.js';
 import VinylRecord from '../components/VinylRecord.jsx';
-import Gate, { gateSeen } from '../components/Gate.jsx';
 import Macro from '../components/Macro.jsx';
 import SideB from '../components/SideB.jsx';
 import CassetteTimeline from '../components/CassetteTimeline.jsx';
 import DragChip from '../components/DragChip.jsx';
 import AboutRecord from '../components/AboutRecord.jsx';
-import { sound, useSound } from '../sound.js';
 import './landing-extra.css';
 import './landing.css';
 import './landing-motion.css';
@@ -30,8 +28,9 @@ export default function Landing() {
   const [time, setTime] = useState(clock);
   const [scratch, setScratch] = useState(false);
   const track = useRef(), mag = useRef();
-  const soundOn = useSound(); const [entered, setEntered] = useState(gateSeen);
-  const onScratch = useCallback((v) => { setScratch(v); sound.scratch(v); }, []);
+  const [entered, setEntered] = useState(false);
+  useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true))); return () => cancelAnimationFrame(id); }, []); // the record rises in on load
+  const onScratch = useCallback((v) => setScratch(v), []);
   useEffect(() => { const t = setInterval(() => setTime(clock()), 20000); return () => clearInterval(t); }, []);
 
   // One scroll listener scrubs the whole sequence by writing CSS variables (no React state, one rAF per frame).
@@ -69,7 +68,7 @@ export default function Landing() {
   const href = (s) => (user ? `/discover?skillId=${s.id}` : '/register');
   return (
     <div className={`moa-root ${entered ? '' : 'pre'}`} data-theme={theme}>
-      <Gate onEnter={() => setEntered(true)} /><DragChip />
+      <DragChip />
       <div className="zoom-track" ref={track}>
         <div className="zoom-bar" aria-hidden="true" />
         <div className="moa">
@@ -79,8 +78,6 @@ export default function Landing() {
               {user ? <><Link to="/discover" className="hide-s">Discover</Link><Link to="/dashboard">Dashboard</Link><button onClick={logout} className="hide-s">Log out</button></>
                 : <><Link to="/login" className="hide-s">Log in</Link><Link to="/register">Join</Link></>}
               <span className="hide-s">{time}</span>
-              <button className="pill" onClick={() => sound.toggle()} aria-pressed={soundOn}>Sound <i /></button>
-              {soundOn && <input type="range" className="vol hide-s" aria-label="Volume" min="0" max="1" step="0.05" defaultValue="1" onChange={(e) => sound.volume(+e.target.value)} />}
               <button className="pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>
             </nav>
           </header>
