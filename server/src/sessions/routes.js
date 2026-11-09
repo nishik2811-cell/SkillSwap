@@ -77,7 +77,7 @@ router.get('/sessions', handle(async (req, res) => {
   if (f.pricing) { where.push('s.pricing = ?'); args.push(f.pricing); }
   if (f.kind) where.push(f.kind === 'group' ? 's.capacity > 1' : 's.capacity = 1');
   if (f.q) { where.push('(s.title LIKE ? OR sk.name LIKE ?)'); args.push(`%${f.q}%`, `%${f.q}%`); }
-  const [rows] = await pool.query(`${SESSION_SELECT} WHERE ${where.join(' AND ')} HAVING seats < s.capacity ORDER BY s.starts_at LIMIT 20 OFFSET ?`, [...args, (f.page - 1) * 20]);
+  const [rows] = await pool.query(`SELECT * FROM (${SESSION_SELECT} WHERE ${where.join(' AND ')}) open_sessions WHERE seats < capacity ORDER BY starts_at LIMIT 20 OFFSET ?`, [...args, (f.page - 1) * 20]);
   res.json({ sessions: rows.map((s) => shape(s, { seatsLeft: s.capacity - s.seats, mentor: mentorOf(s) })), page: f.page });
 }));
 

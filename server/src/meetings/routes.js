@@ -19,11 +19,15 @@ const OPEN_BEFORE_MIN = 15, OPEN_AFTER_MIN = 120; // a session's room accepts pe
 
 async function createRoom(conn, { hostId, title, sessionId = null, waitingRoom = true }) {
   for (let i = 0; i < 5; i++) {
+    await conn.query('SAVEPOINT room_try'); // in PostgreSQL a failed INSERT aborts the whole transaction unless it is rolled back to a savepoint
     try {
       const [r] = await conn.query('INSERT INTO meeting_rooms (code, session_id, host_id, title, waiting_room) VALUES (?,?,?,?,?)', [newCode(), sessionId, hostId, title, waitingRoom]);
       await conn.query("INSERT INTO meeting_participants (room_id, user_id, role, status) VALUES (?,?, 'host', 'left')", [r.insertId, hostId]);
       return r.insertId;
-    } catch (e) { if (e.code !== 'ER_DUP_ENTRY' || String(e.sqlMessage).includes('uq_room_session')) throw e; } // code collision: pick another
+    } catch (e) {
+      if (e.code !== 'ER_DUP_ENTRY' || String(e.sqlMessage).includes('uq_room_session')) throw e;
+      await conn.query('ROLLBACK TO SAVEPOINT room_try'); // code collision: pick another
+    }
   }
   throw err(500, 'could_not_create_room');
 }
@@ -86,12 +90,12 @@ router.post('/rooms/:code/join', wrap(async (req, res) => {
 
   const needsApproval = !!room.waiting_room && !room.session_id && !staff && me?.status !== 'admitted';
   if (needsApproval) {
-    await pool.query("INSERT INTO meeting_participants (room_id, user_id, status) VALUES (?,?, 'waiting') ON DUPLICATE KEY UPDATE status = IF(status = 'admitted', status, 'waiting'), requested_at = NOW()", [room.id, req.user.id]);
+    await pool.query("INSERT INTO meeting_participants (room_id, user_id, status) VALUES (?,?, 'waiting') ON CONFLICT (room_id, user_id) DO UPDATE SET status = CASE WHEN meeting_participants.status = 'admitted' THEN meeting_participants.status ELSE 'waiting' END, requested_at = NOW()", [room.id, req.user.id]);
     emitToUser(room.host_id, 'room_waiting', { code: room.code, username: req.user.username, fullName: req.user.full_name });
     return res.json({ status: 'waiting' });
   }
   const role = staff ? me.role : 'participant';
-  await pool.query("INSERT INTO meeting_participants (room_id, user_id, role, status, first_joined_at) VALUES (?,?,?, 'admitted', NOW()) ON DUPLICATE KEY UPDATE status = 'admitted', first_joined_at = COALESCE(first_joined_at, NOW())", [room.id, req.user.id, role]);
+  await pool.query("INSERT INTO meeting_participants (room_id, user_id, role, status, first_joined_at) VALUES (?,?,?, 'admitted', NOW()) ON CONFLICT (room_id, user_id) DO UPDATE SET status = 'admitted', first_joined_at = COALESCE(meeting_participants.first_joined_at, NOW())", [room.id, req.user.id, role]);
   res.json({ status: 'admitted', role, url: lk.publicUrl(), token: await lk.joinToken({ room: room.code, identity: req.user.username, name: req.user.full_name, admin: role !== 'participant' }) });
 }));
 

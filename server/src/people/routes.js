@@ -221,7 +221,7 @@ async function discover(viewerUser, f, { track = false } = {}) {
   if (f.language) { where.push('EXISTS (SELECT 1 FROM user_languages g WHERE g.user_id = u.id AND g.language = ?)'); args.push(f.language); }
   if (f.weekday != null) { where.push('EXISTS (SELECT 1 FROM availability_slots a WHERE a.user_id = u.id AND a.weekday = ?)'); args.push(f.weekday); }
   if (f.minRating != null) { where.push('u.rating_avg >= ?'); args.push(f.minRating); }
-  const [users] = await pool.query(`SELECT u.* FROM users u WHERE ${where.join(' AND ')} ORDER BY u.last_active_at DESC, u.id LIMIT 500`, args);
+  const [users] = await pool.query(`SELECT u.* FROM users u WHERE ${where.join(' AND ')} ORDER BY u.last_active_at DESC NULLS LAST, u.id LIMIT 500`, args);
 
   // --- ranking (in the backend, recomputed on every request so profile edits apply immediately) ---
   const W = await getWeights(), profiles = await loadProfiles(users);
@@ -238,7 +238,7 @@ async function discover(viewerUser, f, { track = false } = {}) {
   const within = sortResults(ranked.filter((r) => r.priceFit !== 'over_budget'), f.sort);
   const over = sortResults(ranked.filter((r) => r.priceFit === 'over_budget'), 'best');
   const start = (f.page - 1) * f.pageSize, pageItems = within.slice(start, start + f.pageSize);
-  if (track && pageItems.length) await pool.query(`INSERT INTO discovery_impressions (viewer_id, user_id) VALUES ? ON DUPLICATE KEY UPDATE shown_count = shown_count + 1, last_shown_at = NOW()`, [pageItems.map((r) => [viewerUser.id, r.user.id])]);
+  if (track && pageItems.length) await pool.query(`INSERT INTO discovery_impressions (viewer_id, user_id) VALUES ? ON CONFLICT (viewer_id, user_id) DO UPDATE SET shown_count = discovery_impressions.shown_count + 1, last_shown_at = NOW()`, [pageItems.map((r) => [viewerUser.id, r.user.id])]);
   return {
     sort: f.sort, page: f.page, pageSize: f.pageSize, total: within.length,
     users: pageItems.map((r) => result(r, r.profile)),

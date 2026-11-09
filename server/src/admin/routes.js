@@ -29,9 +29,9 @@ router.get('/admin/overview', wrap(async (_req, res) => {
   });
 }));
 router.get('/admin/analytics', wrap(async (_req, res) => {
-  const [signups] = await pool.query("SELECT DATE(created_at) d, COUNT(*) n FROM users WHERE created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY d ORDER BY d");
-  const [sessions] = await pool.query("SELECT DATE(starts_at) d, COUNT(*) n FROM learning_sessions WHERE starts_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND status <> 'cancelled' GROUP BY d ORDER BY d");
-  const [revenue] = await pool.query("SELECT DATE(paid_at) d, SUM(amount_paise) gross, SUM(platform_fee_paise) fees FROM payments WHERE status = 'paid' AND paid_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY d ORDER BY d");
+  const [signups] = await pool.query("SELECT DATE(created_at AT TIME ZONE 'UTC') d, COUNT(*) n FROM users WHERE created_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY d ORDER BY d");
+  const [sessions] = await pool.query("SELECT DATE(starts_at AT TIME ZONE 'UTC') d, COUNT(*) n FROM learning_sessions WHERE starts_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND status <> 'cancelled' GROUP BY d ORDER BY d");
+  const [revenue] = await pool.query("SELECT DATE(paid_at AT TIME ZONE 'UTC') d, SUM(amount_paise) gross, SUM(platform_fee_paise) fees FROM payments WHERE status = 'paid' AND paid_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY d ORDER BY d");
   const [topSkills] = await pool.query("SELECT s.name, COUNT(*) n FROM learning_sessions ls JOIN skills s ON s.id = ls.skill_id GROUP BY s.id ORDER BY n DESC LIMIT 8");
   const day = (x) => ({ ...x, d: new Date(x.d).toISOString().slice(0, 10) });
   res.json({ signups: signups.map(day), sessions: sessions.map(day), revenue: revenue.map((r) => ({ ...day(r), gross: Number(r.gross), fees: Number(r.fees) })), topSkills });
@@ -146,7 +146,7 @@ router.get('/admin/settings', wrap(async (_req, res) => {
 }));
 router.put('/admin/settings', wrap(async (req, res) => {
   const p = SETTINGS.safeParse(req.body); if (!p.success) return bad(res, p.error);
-  for (const [k, v] of Object.entries(p.data)) await pool.query('INSERT INTO platform_settings (`key`, value) VALUES (?,?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [k, typeof v === 'object' ? JSON.stringify(v) : String(v)]);
+  for (const [k, v] of Object.entries(p.data)) await pool.query('INSERT INTO platform_settings (`key`, value) VALUES (?,?) ON CONFLICT ("key") DO UPDATE SET value = EXCLUDED.value', [k, typeof v === 'object' ? JSON.stringify(v) : String(v)]);
   _resetWeightsCache(); await log(req.user.id, 'settings_changed', 'settings', null, Object.keys(p.data).join(', '));
   res.json({ ok: true });
 }));

@@ -122,7 +122,7 @@ async function execRefund(row, pay, { retry = false } = {}) {
     // On a retry the first attempt may actually have reached the gateway (we only lost the reply): adopt that refund instead of paying out twice.
     const resp = (retry && (await gw.findRefund(pay.gateway_payment_id, row.id))) || await gw.refundPayment(pay.gateway_payment_id, row.amount_paise, { refund_row: String(row.id) });
     const done = resp.status === 'processed';
-    await pool.query('UPDATE refunds SET gateway_refund_id = ?, status = ?, failure_reason = NULL, attempts = attempts + 1, processed_at = IF(?, NOW(), NULL) WHERE id = ?', [resp.id, done ? 'processed' : 'pending', done, row.id]);
+    await pool.query('UPDATE refunds SET gateway_refund_id = ?, status = ?, failure_reason = NULL, attempts = attempts + 1, processed_at = CASE WHEN ? THEN NOW() ELSE NULL END WHERE id = ?', [resp.id, done ? 'processed' : 'pending', done, row.id]);
     await syncRefundedStatus(pay.id);
     await notify(pay.learner_id, { type: done ? 'refund_processed' : 'refund_initiated', title: `Refund of ${rupees(row.amount_paise)} ${done ? 'processed' : 'started'}`, body: 'It can take 5–7 working days to reach your account.', link: '/wallet' });
     return { id: row.id, status: done ? 'processed' : 'pending' };
@@ -163,11 +163,11 @@ export async function applyRefundEvent(entity, failed = false) {
   if (!row) { // refund made directly in the Razorpay dashboard: record it so books stay right
     const [[p]] = await pool.query('SELECT id FROM payments WHERE gateway_payment_id = ?', [entity.payment_id]);
     if (!p) return false;
-    await pool.query("INSERT IGNORE INTO refunds (payment_id, amount_paise, status, gateway_refund_id, reason, initiated_by, processed_at) VALUES (?,?,?,?,?,'admin','Refunded in the payment gateway dashboard', IF(?, NOW(), NULL))", [p.id, entity.amount, failed ? 'failed' : 'processed', entity.id, !failed]);
+    await pool.query("INSERT IGNORE INTO refunds (payment_id, amount_paise, status, gateway_refund_id, reason, initiated_by, processed_at) VALUES (?,?,?,?,?,'admin','Refunded in the payment gateway dashboard', CASE WHEN ? THEN NOW() END)", [p.id, entity.amount, failed ? 'failed' : 'processed', entity.id, !failed]);
     await syncRefundedStatus(p.id); return true;
   }
   if (row.status === 'processed' && !failed) return true; // already known
-  await pool.query('UPDATE refunds SET status = ?, processed_at = IF(?, NOW(), processed_at) WHERE id = ?', [failed ? 'failed' : 'processed', !failed, row.id]);
+  await pool.query('UPDATE refunds SET status = ?, processed_at = CASE WHEN ? THEN NOW() ELSE processed_at END WHERE id = ?', [failed ? 'failed' : 'processed', !failed, row.id]);
   if (!failed) {
     await syncRefundedStatus(row.payment_id);
     const [[p]] = await pool.query('SELECT learner_id FROM payments WHERE id = ?', [row.payment_id]);
@@ -201,13 +201,13 @@ export async function expireUnpaidBookings() {
 // Only payments whose booking is still active count. "Available" = session completed; "pending" = session not held yet.
 const EARN_SQL = `SELECT
     COALESCE(SUM(p.amount_paise),0) gross, COALESCE(SUM(p.platform_fee_paise),0) fees, COALESCE(SUM(p.mentor_net_paise),0) net,
-    COALESCE(SUM(IF(s.status = 'completed', p.mentor_net_paise, 0)),0) available, COALESCE(SUM(IF(s.status = 'scheduled', p.mentor_net_paise, 0)),0) pending, COUNT(*) sales
+    COALESCE(SUM(CASE WHEN s.status = 'completed' THEN p.mentor_net_paise ELSE 0 END),0) available, COALESCE(SUM(CASE WHEN s.status = 'scheduled' THEN p.mentor_net_paise ELSE 0 END),0) pending, COUNT(*) sales
   FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN learning_sessions s ON s.id = b.session_id
   WHERE p.mentor_id = ? AND p.status = 'paid' AND b.status IN ('confirmed','completed')`;
 
 async function balanceOf(conn, userId) {
   const [[e]] = await conn.query(EARN_SQL, [userId]);
-  const [[o]] = await conn.query("SELECT COALESCE(SUM(IF(status IN ('requested','paid'), amount_paise, 0)),0) committed, COALESCE(SUM(IF(status = 'paid', amount_paise, 0)),0) paid_out, COALESCE(SUM(IF(status = 'requested', amount_paise, 0)),0) requested FROM payouts WHERE mentor_id = ?", [userId]);
+  const [[o]] = await conn.query("SELECT COALESCE(SUM(CASE WHEN status IN ('requested','paid') THEN amount_paise ELSE 0 END),0) committed, COALESCE(SUM(CASE WHEN status = 'paid' THEN amount_paise ELSE 0 END),0) paid_out, COALESCE(SUM(CASE WHEN status = 'requested' THEN amount_paise ELSE 0 END),0) requested FROM payouts WHERE mentor_id = ?", [userId]);
   const [[rf]] = await conn.query("SELECT COALESCE(SUM(amount_paise),0) refunded FROM payments WHERE mentor_id = ? AND status = 'refunded'", [userId]);
   return { grossPaise: Number(e.gross), feesPaise: Number(e.fees), netPaise: Number(e.net), pendingPaise: Number(e.pending), availablePaise: Number(e.available), sales: e.sales,
     paidOutPaise: Number(o.paid_out), requestedPaise: Number(o.requested), refundedPaise: Number(rf.refunded), balancePaise: Number(e.available) - Number(o.committed) };

@@ -57,7 +57,7 @@ router.get('/connections', wrap(async (req, res) => {
   const me = req.user.id;
   const [rows] = await pool.query(
     `SELECT c.id, c.status, c.message, c.created_at, c.requester_id, o.username, o.full_name, o.avatar_path
-     FROM connections c JOIN users o ON o.id = IF(c.requester_id = ?, c.addressee_id, c.requester_id)
+     FROM connections c JOIN users o ON o.id = CASE WHEN c.requester_id = ? THEN c.addressee_id ELSE c.requester_id END
      WHERE (c.requester_id = ? OR c.addressee_id = ?) AND c.status <> 'rejected'
        AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = o.id AND b.blocked_id = ?) OR (b.blocker_id = ? AND b.blocked_id = o.id))
      ORDER BY c.created_at DESC`, [me, me, me, me, me]);

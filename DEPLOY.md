@@ -1,58 +1,44 @@
-# Deploying SkillSwap: website on Vercel, backend on a Node host
+# Deploying SkillSwap (free stack): Vercel + Render + Neon
 
 ```
 Browser ──► Vercel (React site)
-              ├─ /api/*, /uploads/*  ── rewrite ──►  API host (Express + Socket.IO + jobs) ──► MySQL
+              ├─ /api/*, /uploads/*  ── rewrite ──►  Render (Express + Socket.IO + jobs) ──► Neon (PostgreSQL)
               └─ everything else → index.html
-Browser ──► wss://API host   (live chat/notifications, logs in with a short-lived signed token)
-Browser ──► LiveKit Cloud    (video rooms)        Razorpay ──► API host /api/v1/webhooks/razorpay
+Browser ──► wss://Render   (live chat/notifications; logs in with a short-lived signed token)
+Browser ──► LiveKit Cloud (video rooms)      Razorpay ──► Render /api/v1/webhooks/razorpay
 ```
 
-Why two hosts: the API keeps WebSocket connections open, runs minute-by-minute jobs (reminders, releasing unpaid seats,
-refund retries), stores uploads on disk and receives payment webhooks. Those need a normal, always-on process.
-Vercel proxies `/api` so the login cookie stays first-party on your Vercel domain.
+## 1. Neon (database)
+Create a project at neon.tech, copy the **connection string** (`postgresql://…?sslmode=require`). Nothing else to do:
+the API creates the tables itself on startup (`server/migrations/001_schema.sql`, uses the built-in `citext` extension).
 
-## 1. MySQL
-Any hosted MySQL 8 (Railway MySQL, Aiven, PlanetScale-compatible, RDS...). Create an empty database and a user.
+## 2. Render (API)
+1. New > Blueprint > pick this repo (it reads `render.yaml`), or New > Web Service > Docker.
+2. Set `DATABASE_URL` (Neon string), `WEB_ORIGIN` (your Vercel URL). `JWT_SECRET` is generated for you.
+   Optional: SMTP, Razorpay test keys, LiveKit (see `.env.example`).
+3. After deploy, `https://<service>.onrender.com/api/v1/health` should return `{"ok":true,"db":"up"}`.
 
-## 2. API host (Railway, Render or Fly.io)
-Deploy this repo with the root `Dockerfile`. On start it applies migrations, then runs the server.
+Free-plan limits (check Render's current terms): the service sleeps after idle time and wakes on the next request, so
+reminders/refund retries only run while it is awake, live connections drop when it sleeps, and there is no persistent disk,
+so avatars and chat attachments disappear on redeploy. A free uptime pinger hitting `/api/v1/health` every 10 minutes
+keeps it awake but may exceed free hours; use object storage for uploads before real use.
 
-| Variable | Value |
-|---|---|
-| `DB_HOST` `DB_PORT` `DB_USER` `DB_PASSWORD` `DB_NAME` | your MySQL |
-| `JWT_SECRET` | random, 16+ chars (`openssl rand -hex 32`) |
-| `WEB_ORIGIN` | your Vercel URL, e.g. `https://skillswap.vercel.app` (CORS + links in emails) |
-| `TRUST_PROXY` | `2` (Vercel + the host's proxy); `1` if you call the API host directly |
-| `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASS` `MAIL_FROM` | your email provider. Without it, verification links are only logged. |
-| `RAZORPAY_KEY_ID` `RAZORPAY_KEY_SECRET` `RAZORPAY_WEBHOOK_SECRET` | Razorpay **test** keys first |
-| `LIVEKIT_URL` `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` | LiveKit Cloud project (`wss://...livekit.cloud`) |
+## 3. Vercel (website)
+1. Import the repo, **Root Directory `web`**.
+2. Edit `web/vercel.json`: replace `YOUR-API-HOST.example.com` with `<service>.onrender.com`. Commit and push.
+3. Environment variable `VITE_REALTIME_URL` = `https://<service>.onrender.com`.
 
-Also:
-- **Persistent volume** mounted at `/data` (uploads go to `/data/uploads`). Without a volume, avatars and attachments disappear on every deploy.
-- **Health check path:** `/api/v1/health`. **Port:** `4000` (or whatever `PORT` the host sets).
-- Run **exactly one instance**. Presence and the job timers live in memory, so a second instance would double-send reminders.
-- First admin: open a shell on the host and run `node server/scripts/make-admin.js <username>` (the account must exist and be verified).
+## 4. First admin
+Register an account, then run `node server/scripts/make-admin.js <username>` against the same `DATABASE_URL`
+(Render shell, or locally with `DATABASE_URL` set).
 
-## 3. Razorpay webhook
-Dashboard > Settings > Webhooks > add `https://<API HOST>/api/v1/webhooks/razorpay`, set a secret (same value as
-`RAZORPAY_WEBHOOK_SECRET`), events: `payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`.
-Point it at the API host directly, not at Vercel.
+## 5. Razorpay webhook
+Dashboard > Settings > Webhooks: `https://<service>.onrender.com/api/v1/webhooks/razorpay`, a secret (= `RAZORPAY_WEBHOOK_SECRET`),
+events `payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`.
 
-## 4. Vercel (website)
-1. Import the repo. **Root Directory: `web`**. Framework: Vite (auto-detected).
-2. Edit `web/vercel.json`: replace both `YOUR-API-HOST.example.com` with your API host (no scheme in the placeholder, keep `https://`). Commit.
-3. Environment variable: `VITE_REALTIME_URL` = `https://<API HOST>` (the live socket connects here directly).
-4. Deploy. Open the site, register, check the verification email, log in.
-
-## 5. Quick checks after deploying
-- `https://<site>/api/v1/health` returns `{"ok":true,"db":"up"}` (proves the Vercel rewrite and the database).
-- Send a message between two accounts in two browsers: it should arrive instantly (proves the socket token login).
-- A paid booking with Razorpay test keys: pay, then see the booking become *Confirmed* (proves the webhook).
-- Upload an avatar, redeploy the API, check it is still there (proves the volume).
+## Local development
+Any PostgreSQL 14+ with the `citext` extension: set `DATABASE_URL`, run `npm run migrate`, `npm run dev`, `npm test`.
 
 ## Known limits
-- Single API instance (see above). Scaling out needs a Redis adapter for Socket.IO and a job lock.
-- Uploads use local disk on a volume, not object storage.
-- Razorpay payouts to mentors are manual (admin marks them paid).
-- The `Dockerfile` has not been built in my environment (no Docker available there); the server itself was started in production mode.
+Single API instance (presence and job timers are in memory). Uploads on local disk. Payouts are marked paid by an admin by hand.
+Not yet verified on the real Neon/Render/Vercel combination: it passes all 53 tests against a local PostgreSQL 18.

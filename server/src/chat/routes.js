@@ -242,10 +242,10 @@ router.delete('/conversations/:id/members/:username', wrap(async (req, res) => {
     await conn.beginTransaction();
     const [r] = await conn.query('DELETE FROM conversation_members WHERE conversation_id = ? AND user_id = ?', [cid(req), target.id]);
     if (!r.affectedRows) { await conn.rollback(); return res.status(404).json({ error: 'not_found' }); }
-    const [[left]] = await conn.query('SELECT COUNT(*) n, SUM(role = \'admin\') admins FROM conversation_members WHERE conversation_id = ?', [cid(req)]);
+    const [[left]] = await conn.query('SELECT COUNT(*) n, COUNT(*) FILTER (WHERE role = \'admin\') admins FROM conversation_members WHERE conversation_id = ?', [cid(req)]);
     if (left.n === 0) await conn.query('DELETE FROM conversations WHERE id = ?', [cid(req)]);
     else {
-      if (!Number(left.admins)) await conn.query("UPDATE conversation_members SET role = 'admin' WHERE conversation_id = ? ORDER BY joined_at LIMIT 1", [cid(req)]); // never leave a group without an admin
+      if (!Number(left.admins)) await conn.query("UPDATE conversation_members SET role = 'admin' WHERE (conversation_id, user_id) = (SELECT conversation_id, user_id FROM conversation_members WHERE conversation_id = ? ORDER BY joined_at LIMIT 1)", [cid(req)]); // never leave a group without an admin
       await systemMessage(conn, cid(req), req.user.id, self ? `${req.user.full_name} left` : `${req.user.full_name} removed ${target.full_name}`);
     }
     await conn.commit();

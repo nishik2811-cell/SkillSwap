@@ -1,0 +1,25 @@
+# Render blueprint: the API (Express + Socket.IO + jobs) from the root Dockerfile, on Render's free plan.
+# Free plan: sleeps after ~15 min idle, no persistent disk (uploads are lost on redeploy). See DEPLOY.md.
+services:
+  - type: web
+    name: skillswap-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: TRUST_PROXY, value: "2" }
+      - { key: DATABASE_URL, sync: false }          # paste the Neon connection string
+      - { key: JWT_SECRET, generateValue: true }
+      - { key: WEB_ORIGIN, sync: false }            # your Vercel URL, e.g. https://skillswap-eight-chi.vercel.app
+      - { key: SMTP_HOST, sync: false }
+      - { key: SMTP_PORT, sync: false }
+      - { key: SMTP_USER, sync: false }
+      - { key: SMTP_PASS, sync: false }
+      - { key: MAIL_FROM, value: "SkillSwap <no-reply@skillswap.local>" }
+      - { key: RAZORPAY_KEY_ID, sync: false }
+      - { key: RAZORPAY_KEY_SECRET, sync: false }
+      - { key: RAZORPAY_WEBHOOK_SECRET, sync: false }
+      - { key: LIVEKIT_URL, sync: false }
+      - { key: LIVEKIT_API_KEY, sync: false }
+      - { key: LIVEKIT_API_SECRET, sync: false }

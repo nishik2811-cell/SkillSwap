@@ -81,9 +81,9 @@ router.post('/register', wrap(async (req, res) => {
 router.post('/verify-email', wrap(async (req, res) => {
   const d = parse(z.object({ token: z.string().min(10) }), req.body, res); if (!d) return;
   const [r] = await pool.query(
-    `UPDATE email_tokens t JOIN users u ON u.id = t.user_id
-     SET t.used_at = NOW(), u.email_verified_at = COALESCE(u.email_verified_at, NOW())
-     WHERE t.token_hash = ? AND t.purpose = 'verify_email' AND t.used_at IS NULL AND t.expires_at > NOW()`,
+    `WITH t AS (UPDATE email_tokens SET used_at = NOW()
+       WHERE token_hash = ? AND purpose = 'verify_email' AND used_at IS NULL AND expires_at > NOW() RETURNING user_id)
+     UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id IN (SELECT user_id FROM t)`,
     [sha256(d.token)]);
   if (!r.affectedRows) return res.status(400).json({ error: 'invalid_or_expired_token' });
   res.json({ ok: true });
