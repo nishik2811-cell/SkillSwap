@@ -69,7 +69,8 @@ export function Login() {
 
 export function VerifyEmail() {
   const [q] = useSearchParams(); const [state, setState] = useState('loading');
-  useEffect(() => { api('/auth/verify-email', { method: 'POST', body: { token: q.get('token') || '' } }).then(() => setState('ok')).catch(() => setState('bad')); }, [q]);
+  const sent = useRef('');   // a token is single-use: send it once even when React's dev StrictMode runs this effect twice
+  useEffect(() => { const token = q.get('token') || ''; if (sent.current === token) return; sent.current = token; api('/auth/verify-email', { method: 'POST', body: { token } }).then(() => setState('ok')).catch(() => setState('bad')); }, [q]);
   return <div className="center"><div className="card narrow stack">
     {state === 'loading' && <p>Verifying…</p>}
     {state === 'ok' && <><h2>Email verified</h2><Link className="btn" to="/login">Log in</Link></>}

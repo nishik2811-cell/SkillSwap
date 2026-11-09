@@ -105,6 +105,7 @@ export default function Room() {
   // ---- in the meeting ----
   const all = room ? [room.localParticipant, ...room.remoteParticipants.values()] : [];
   const sharer = all.find((p) => p.getTrackPublication(Track.Source.ScreenShare)?.track);
+  const canShare = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;   // phone browsers cannot share a screen
   return <div className="meet">
     <div ref={audioBox} hidden />
     {banner && <div className="alert err" role="status" style={{ margin: 8 }}>{banner}</div>}{err && <div className="alert err" role="alert" style={{ margin: 8 }}>{err} <button className="linkbtn" onClick={() => setErr('')}>Dismiss</button></div>}
@@ -129,13 +130,13 @@ export default function Room() {
       </aside>}
     </div>
     <div className="controls" role="toolbar" aria-label="Meeting controls">
-      <button className="ctl" aria-pressed={!!lp?.isMicrophoneEnabled} onClick={() => toggle('mic')}>{lp?.isMicrophoneEnabled ? '🎤 Mute' : '🔇 Unmute'}</button>
-      <button className="ctl" aria-pressed={!!lp?.isCameraEnabled} onClick={() => toggle('cam')}>{lp?.isCameraEnabled ? '📷 Stop video' : '🚫 Start video'}</button>
-      <button className="ctl" aria-pressed={!!lp?.isScreenShareEnabled} onClick={() => toggle('screen')}>🖥 {lp?.isScreenShareEnabled ? 'Stop sharing' : 'Share screen'}</button>
-      <button className="ctl" aria-pressed={!!hands[user.username]} onClick={raise}>✋ {hands[user.username] ? 'Lower hand' : 'Raise hand'}</button>
-      <button className="ctl" aria-pressed={panel === 'chat'} onClick={() => setPanel(panel === 'chat' ? null : 'chat')}>💬 Chat</button>
-      <button className="ctl" aria-pressed={panel === 'people'} onClick={() => setPanel(panel === 'people' ? null : 'people')}>👥 People{staff && waiters.length > 0 ? ` (${waiters.length})` : ''}</button>
-      <button className="ctl danger" onClick={leave}>Leave</button>{myRole === 'host' && <button className="ctl danger" onClick={endAll}>End for all</button>}
+      <button className="ctl" aria-label={lp?.isMicrophoneEnabled ? 'Mute' : 'Unmute'} aria-pressed={!!lp?.isMicrophoneEnabled} onClick={() => toggle('mic')}><span aria-hidden="true">{lp?.isMicrophoneEnabled ? '🎤' : '🔇'}</span><span className="lbl"> {lp?.isMicrophoneEnabled ? 'Mute' : 'Unmute'}</span></button>
+      <button className="ctl" aria-label={lp?.isCameraEnabled ? 'Stop video' : 'Start video'} aria-pressed={!!lp?.isCameraEnabled} onClick={() => toggle('cam')}><span aria-hidden="true">{lp?.isCameraEnabled ? '📷' : '🚫'}</span><span className="lbl"> {lp?.isCameraEnabled ? 'Stop video' : 'Start video'}</span></button>
+      {canShare && <button className="ctl" aria-label={lp?.isScreenShareEnabled ? 'Stop sharing' : 'Share screen'} aria-pressed={!!lp?.isScreenShareEnabled} onClick={() => toggle('screen')}><span aria-hidden="true">🖥</span><span className="lbl"> {lp?.isScreenShareEnabled ? 'Stop sharing' : 'Share screen'}</span></button>}
+      <button className="ctl" aria-label={hands[user.username] ? 'Lower hand' : 'Raise hand'} aria-pressed={!!hands[user.username]} onClick={raise}><span aria-hidden="true">✋</span><span className="lbl"> {hands[user.username] ? 'Lower hand' : 'Raise hand'}</span></button>
+      <button className="ctl" aria-label="Chat" aria-pressed={panel === 'chat'} onClick={() => setPanel(panel === 'chat' ? null : 'chat')}><span aria-hidden="true">💬</span><span className="lbl"> Chat</span></button>
+      <button className="ctl" aria-label="People" aria-pressed={panel === 'people'} onClick={() => setPanel(panel === 'people' ? null : 'people')}><span aria-hidden="true">👥</span><span className="lbl"> People</span>{staff && waiters.length > 0 ? ` (${waiters.length})` : ''}</button>
+      <button className="ctl danger" onClick={leave}>Leave</button>{myRole === 'host' && <button className="ctl danger" onClick={endAll}>End<span className="lbl"> for all</span></button>}
     </div>
   </div>;
 }

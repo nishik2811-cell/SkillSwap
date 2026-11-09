@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
@@ -14,10 +15,16 @@ export const Avatar = ({ user, big }) => user?.avatarUrl
 export function Nav() {
   const { user, logout } = useAuth(); const social = useSocial();
   const [theme, toggleTheme] = useTheme();
+  const navEl = useRef();
+  useEffect(() => {   // the header wraps to two rows on phones: publish its real height so full-height screens (chat, meeting room) fit exactly
+    const el = navEl.current; if (!el) return;
+    const set = () => document.documentElement.style.setProperty('--nav-h', `${el.getBoundingClientRect().height}px`);
+    const ro = new ResizeObserver(set); ro.observe(el); set(); return () => ro.disconnect();
+  }, []);
   const themeBtn = <button className="theme-pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>;
   const n = social?.unread || 0, req = social?.conn.received.length || 0;
   return (
-    <header className="nav"><div className="wrap">
+    <header className="nav" ref={navEl}><div className="wrap">
       <Link to="/" className="logo">skill<b>swap</b></Link>
       {user ? <>
         <nav className="nav-links" aria-label="Main">
