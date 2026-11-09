@@ -4,16 +4,18 @@ const FALLBACK = ['Guitar', 'Python', 'Photography', 'Hindi', 'Cooking', 'UI/UX 
 
 /* The record is drawn in code: grooves as resolution-independent CSS gradients (they stay sharp at any zoom), a fixed sheen, and a spinning label.
    Spin is one rAF loop touching a single transform. Drag to scratch it. 33 1/3 rpm = 200 deg/s. */
-export default function VinylRecord({ skills, side, onScratch }) {
+export default function VinylRecord({ skills, side, rpm = 33, onScratch }) {
+  const rpmRef = useRef(rpm); rpmRef.current = rpm;
   const spinner = useRef(), disc = useRef();
   const names = useMemo(() => (skills?.length ? skills.map((s) => s.name) : FALLBACK).map((n) => n.toUpperCase()), [skills]);
 
   useEffect(() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let angle = 0, speed = reduce ? 0 : 200, drag = null, last = performance.now(), raf;
-    const el = spinner.current, base = reduce ? 0 : 200;
+    const el = spinner.current;
     const frame = (t) => {
       const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      const base = reduce ? 0 : rpmRef.current === 45 ? 270 : 200;
       if (!drag) { speed += (base - speed) * Math.min(1, dt * 2.2); angle += speed * dt; }
       el.style.transform = `rotate(${angle}deg)`; raf = requestAnimationFrame(frame);
     };
@@ -40,7 +42,7 @@ export default function VinylRecord({ skills, side, onScratch }) {
               <text className="ring-text"><textPath href="#ring" textLength="2070" lengthAdjust="spacing">{ring}</textPath></text>
               <circle cx="500" cy="500" r="175" className={A ? 'label a' : 'label b'} />
               <circle cx="500" cy="500" r="175" fill="none" stroke="rgba(0,0,0,.25)" strokeWidth="2" />
-              <text className="label-ring"><textPath href="#lring" textLength="870" lengthAdjust="spacing">{`SKILLSWAP · SIDE ${side} · ${A ? 'I CAN TEACH' : 'I WANT TO LEARN'} · 33⅓ RPM · `}</textPath></text>
+              <text className="label-ring"><textPath href="#lring" textLength="870" lengthAdjust="spacing">{`SKILLSWAP · SIDE ${side} · ${A ? 'I CAN TEACH' : 'I WANT TO LEARN'} · 33 1/3 RPM · `}</textPath></text>
               <text x="500" y="520" textAnchor="middle" className="label-big">{A ? 'TEACH' : 'LEARN'}</text>
               <text x="500" y="590" textAnchor="middle" className="label-small">{`SIDE ${side}`}</text>
               <circle cx="500" cy="500" r="11" fill="#050407" />

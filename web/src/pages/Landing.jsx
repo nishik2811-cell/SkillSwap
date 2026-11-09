@@ -28,6 +28,7 @@ export default function Landing() {
   const [side, setSide] = useState('A');
   const [time, setTime] = useState(clock);
   const [scratch, setScratch] = useState(false);
+  const [rpm, setRpm] = useState(33);   // 33 1/3 or 45, like the switch on a turntable
   const track = useRef(), mag = useRef();
   const [entered, setEntered] = useState(false);
   useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true))); return () => cancelAnimationFrame(id); }, []); // the record rises in on load
@@ -85,8 +86,8 @@ export default function Landing() {
 
           <div className="moa-row moa-mono fade"><span>Side {side}</span><span className="hide-s">Scroll to dive into the groove</span><span>Est. 2026</span></div>
 
-          <VinylRecord skills={skills} side={side} onScratch={onScratch} />
-          <Record3D side={side} theme={theme} onScratch={onScratch} />
+          <VinylRecord skills={skills} side={side} rpm={rpm} onScratch={onScratch} />
+          <Record3D side={side} theme={theme} rpm={rpm} onScratch={onScratch} />
           <Macro /><SideB />
           <p className="wave-copy" aria-hidden="true">Every groove is a waveform. Every swap starts the same way: needle down, then say hello.</p>
           <span className="flip-cap moa-mono" aria-hidden="true">Flip it. Side B is etched.</span>
@@ -107,7 +108,7 @@ export default function Landing() {
               <button aria-pressed={side === 'A'} onClick={() => setSide('A')}>Side A<span className="hide-s"> · Mentor</span></button>
               <button aria-pressed={side === 'B'} onClick={() => setSide('B')}>Side B<span className="hide-s"> · Learner</span></button>
             </div>
-            <span className="pill static">{scratch ? 'Scratching' : '33⅓ RPM'}</span>
+            <button type="button" className="pill static rpm" onClick={() => setRpm((r) => (r === 33 ? 45 : 33))} aria-label={`Record speed ${rpm === 33 ? '33 and a third' : '45'} rpm. Switch speed.`}>{scratch ? 'Scratching' : `${rpm === 33 ? '33 1/3' : '45'} RPM`}</button>
           </div>
         </div>
       </div>

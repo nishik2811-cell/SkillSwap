@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
    Scrolling flies a camera down into a single groove, pulls back out and flips the record to its etched B-side.
    If WebGL2 is missing the old CSS record stays (this component never adds the `gl` class). */
 
-const TAU = Math.PI * 2, RPM33 = (100 / 3) * TAU / 60;
+const TAU = Math.PI * 2, RPM33 = (100 / 3) * TAU / 60, RPM45 = 45 * TAU / 60;
 const v3 = {
   add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
   mix: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
@@ -17,10 +17,10 @@ const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /* Camera path over scroll progress s (0..1): hover above the record, dive into a groove (x355), hold, pull out, flip to Side B. */
-const T0 = [0, 0, 0.05], D0 = 4.5, DIR0 = v3.norm([0, 1, 0.9]);
+const T0 = [0, 0, 0.05], D0 = 4.8, DIR0 = v3.norm([0, 1, 0.9]);
 const DIVE = [0.52, 0, 0.47], DR = Math.hypot(DIVE[0], DIVE[2]), TAN = [-DIVE[2] / DR, 0, DIVE[0] / DR];
 const DIR1 = v3.norm(v3.add(v3.mul(TAN, -1), [0, 0.14, 0])), D1 = 0.0127;
-const DIRF = v3.norm([0, 1, 0.55]), DF = 4.5;
+const DIRF = v3.norm([0, 1, 0.55]), DF = 4.8;
 export const HOLD = [0.5, 0.6];       // scroll range where the camera rests inside the groove
 export function cameraAt(s, aspect = 1.6, mx = 0, my = 0) {
   let tgt, dist, dir, flip = 0, up = 0;
@@ -36,7 +36,7 @@ export function cameraAt(s, aspect = 1.6, mx = 0, my = 0) {
   const o = Math.min(1, dist / 1.5), ay = mx * 0.2 * o, ax = my * 0.1 * o, cy = Math.cos(ay), sy = Math.sin(ay);   // a little orbit with the pointer, fading out up close
   dir = v3.norm([dir[0] * cy + dir[2] * sy, dir[1] + ax, -dir[0] * sy + dir[2] * cy]);
   const fit = Math.max(1, 1.5 / aspect), d2 = dist * (1 + (fit - 1) * clamp01(dist / 3));       // narrow screens: back off so the whole record fits
-  up = 0.17 * (1 - smooth(0.02, 0.2, s)) * (1 - smooth(0.88, 0.97, s)); // hero: sit the record in the upper part of the frame
+  up = 0.15 * (1 - smooth(0.02, 0.2, s)) * (1 - smooth(0.88, 0.97, s)); // hero: sit the record in the upper part of the frame
   return { cam: v3.add(tgt, v3.mul(dir, d2)), tgt, dist, flip, off: up };
 }
 export const magAt = (s) => D0 / cameraAt(s).dist;
@@ -83,7 +83,7 @@ void main(){
   vec2 q = vec2(cs * a + sn * b, -sn * a + cs * b);
   float th = atan(q.y, q.x);
   vec3 Vv = -rd, L = normalize(vec3(uLight.x, 1.1, uLight.y)), H = normalize(L + Vv);
-  vec3 col, n = Nf, base = vec3(0.010, 0.009, 0.012), diff = base;
+  vec3 col, n = Nf, base = vec3(0.011, 0.010, 0.014), diff = base;
   float ao = 1.0, gloss = 1.0, aniso = 0.0;
   if (r < 0.333) {                                                    // paper label
     vec2 lq = q;
@@ -122,10 +122,30 @@ void main(){
     vec3 spec = env(R) * fres * gloss + vec3(pow(max(dot(n, Hn), 0.0), 600.0) * 4.0) * fres * gloss;
     float tdh = dot(Et, Hn), kk = pow(sqrt(max(0.0, 1.0 - tdh * tdh)), 220.0);     // radial streaks of light across a spinning record
     float tdh2 = dot(Et, normalize(normalize(vec3(-0.6, 0.6, 0.4)) + Vv)), kk2 = pow(sqrt(max(0.0, 1.0 - tdh2 * tdh2)), 160.0);
-    spec += aniso * (vec3(1.0, 0.97, 0.92) * kk * 0.9 + vec3(0.8, 0.85, 1.0) * kk2 * 0.35) * (0.3 + fres);
+    float tdh3 = dot(Et, normalize(normalize(vec3(0.7, 0.8, -0.3)) + Vv)), kk3 = pow(sqrt(max(0.0, 1.0 - tdh3 * tdh3)), 14.0);   // broad soft wedges: the satin look of real vinyl
+    spec += aniso * (vec3(1.0, 0.97, 0.92) * kk * 0.9 + vec3(0.8, 0.85, 1.0) * kk2 * 0.35 + vec3(0.75, 0.8, 0.95) * kk3 * 0.13) * (0.3 + fres);
+    float band = 0.5 + 0.5 * sin(r * 3300.0 + th * 0.0), bw = smoothstep(0.45, 0.1, fw * 3300.0 / TAU);   // fine ring banding, only where the eye can resolve it
+    spec *= 1.0 + 0.35 * (band - 0.5) * bw * (1.0 - aniso * 0.0);
+    ao *= mix(0.62, 1.0, smoothstep(0.333, 0.5, r)) * mix(1.0, 0.8, smoothstep(0.9, 0.985, r));   // shade at the label and the rim
     col = (diff * (0.25 + max(dot(n, L), 0.0)) + diff * env(n) * 0.6 + spec) * ao;
   }
-  vec3 outc = mix(bg, tone(col), cover);
+  // a real 2 mm slab: the lower rim shows under the near edge, and the record casts a soft shadow on the surface it rests on
+  float sg = front ? 1.0 : -1.0;
+  float t2 = (-0.03 * sg - dot(uCam, N)) / den;
+  vec3 P2 = uCam + rd * (t2 > 0.0 ? t2 : 1.0);
+  vec2 ab2 = vec2(dot(P2, U), dot(P2, V)); float r2 = length(ab2), fw2 = fwidth(r2);
+  float edgeM = (t2 > 0.0 ? smoothstep(1.0 + fw2, 1.0 - fw2, r2) : 0.0) * (1.0 - cover);
+  vec3 Eo = (U * ab2.x + V * ab2.y) / max(r2, 1e-4);
+  vec3 edgeC = tone(vec3(0.018) + env(reflect(-Vv, Eo)) * 0.5 + vec3(0.5) * pow(max(dot(Eo, L), 0.0), 3.0) * 0.25);
+  float tf = (-0.07 * sg - dot(uCam, N)) / den;
+  vec3 Pf = uCam + rd * (tf > 0.0 ? tf : 1.0);
+  float rf = length(vec2(dot(Pf, U), dot(Pf, V)));
+  float rs = length(vec2(dot(Pf, U) + uLight.x * 0.16, dot(Pf, V) + uLight.y * 0.16));
+  float lum = dot(bg, vec3(0.33));
+  vec3 bgF = bg + vec3(0.04) * (1.0 - lum) * smoothstep(2.6, 0.5, rf);                 // a faint pool of light under the record ...
+  bgF *= 1.0 - mix(0.8, 0.3, lum) * smoothstep(1.4, 0.9, rs) * (tf > 0.0 ? 1.0 : 0.0);               // ... and the shadow it throws
+  vec3 outc = mix(bgF, edgeC, edgeM);
+  outc = mix(outc, tone(col), cover);
   outc += (hash(gl_FragCoord.xy) - 0.5) * 0.004;
   o = vec4(outc, 1.0);
 }`;
@@ -140,7 +160,7 @@ function labelTex(font, bg, fg, big, side, sub) {
   const S = 1024, c = Object.assign(document.createElement('canvas'), { width: S, height: S }), x = c.getContext('2d');
   x.fillStyle = bg; x.fillRect(0, 0, S, S);
   x.fillStyle = fg; x.textBaseline = 'middle';
-  x.font = `600 40px ${font}`; ringText(x, `SKILLSWAP · SIDE ${side} · ${sub} · 33⅓ RPM · `.repeat(1).padEnd(60, ' ').slice(0, 60), S / 2, S / 2, 392, 40);
+  x.font = `600 40px ${font}`; ringText(x, `SKILLSWAP · SIDE ${side} · ${sub} · 33 1/3 RPM · `.repeat(1).padEnd(60, ' ').slice(0, 60), S / 2, S / 2, 392, 40);
   x.textAlign = 'center'; x.font = `800 190px ${font}`; x.fillText(big, S / 2, S / 2 - 6);
   x.font = `500 52px ${font}`; x.fillText(`SIDE ${side}`, S / 2, S / 2 + 140);
   return c;
@@ -158,11 +178,15 @@ function backTex(font) {
   x.fillStyle = '#0b0b0e'; x.textAlign = 'center'; x.font = `800 ${0.09 * R * 2}px ${font}`; x.fillText('SWAP', C, C + 4);
   return c;
 }
-const rgb = (css) => { const m = css.match(/[\d.]+/g) || [12, 11, 15]; return [m[0] / 255, m[1] / 255, m[2] / 255]; };
+const rgb = (css) => {                                  // '#rrggbb' or 'rgb(r, g, b)'
+  const h = /^#([\da-f]{6})$/i.exec(css.trim());
+  if (h) { const n = parseInt(h[1], 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
+  const m = css.match(/[\d.]+/g) || [12, 11, 15]; return [m[0] / 255, m[1] / 255, m[2] / 255];
+};
 
-export default function Record3D({ side, theme, onScratch }) {
-  const cv = useRef(), live = useRef({ side, theme });
-  live.current = { side, theme };
+export default function Record3D({ side, theme, rpm = 33, onScratch }) {
+  const cv = useRef(), live = useRef({ side, theme, rpm });
+  live.current = { side, theme, rpm };
 
   useEffect(() => {
     const canvas = cv.current, root = canvas.closest('.moa-root'), track = canvas.closest('.zoom-track');
@@ -181,7 +205,7 @@ export default function Record3D({ side, theme, onScratch }) {
     let bg = [0.05, 0.05, 0.06], acc = [0.35, 0.42, 1];
     const build = () => {
       const cs = getComputedStyle(root), font = cs.getPropertyValue('--display').trim() || 'sans-serif', accent = cs.getPropertyValue('--accent').trim() || '#5b6bff';
-      bg = rgb(getComputedStyle(root).backgroundColor); const a = new Option().style; a.color = accent; acc = rgb(a.color || 'rgb(91,107,255)');
+      bg = rgb(cs.getPropertyValue('--bg') || '#0c0b0f');   // the variable, not the computed background: that one is still fading when the theme flips const a = new Option().style; a.color = accent; acc = rgb(a.color || 'rgb(91,107,255)');
       upload(0, labelTex(font, accent, '#f4f3ff', 'TEACH', 'A', 'I CAN TEACH'));
       upload(1, labelTex(font, '#e9e4d4', '#15141a', 'LEARN', 'B', 'I WANT TO LEARN'));
       upload(2, backTex(font));
@@ -221,7 +245,7 @@ export default function Record3D({ side, theme, onScratch }) {
       const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
       if (!visible) return;
       const key = live.current.theme; if (builtFor !== key) { builtFor = key; build(); }
-      if (!dragging) omega += ((reduce ? 0 : RPM33) - omega) * Math.min(1, dt * 2.6);
+      if (!dragging) omega += ((reduce ? 0 : live.current.rpm === 45 ? RPM45 : RPM33) - omega) * Math.min(1, dt * 2.6);
       s = progress(); smx += (mx - smx) * Math.min(1, dt * 3); smy += (my - smy) * Math.min(1, dt * 3);
       sMix += ((live.current.side === 'B' ? 1 : 0) - sMix) * Math.min(1, dt * 8);
       cur = cameraAt(s, W / H, smx, smy);
