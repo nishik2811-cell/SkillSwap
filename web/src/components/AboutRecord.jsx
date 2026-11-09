@@ -1,9 +1,9 @@
 /** The flat, top-down record after the dive: ring text, a diamond glyph, and the pitch in one paragraph. */
-export default function AboutRecord() {
+export default function AboutRecord({ record = true }) {
   const ring = 'SKILLSWAP ✦ '.repeat(5);
   return (
     <section className="about" aria-labelledby="about-h">
-      <div className="about-record" aria-hidden="true">
+      {record && <div className="about-record" aria-hidden="true">
         <svg viewBox="0 0 1000 1000">
           <defs><path id="aring" d="M500 500 m-400 0 a400 400 0 1 1 800 0 a400 400 0 1 1 -800 0" /></defs>
           <circle cx="500" cy="500" r="490" className="ab-disc" />
@@ -14,7 +14,7 @@ export default function AboutRecord() {
           <text x="500" y="540" textAnchor="middle" className="ab-lbl">LEARNER</text>
           <circle cx="500" cy="500" r="9" fill="#050407" />
         </svg>
-      </div>
+      </div>}
       <div className="about-copy">
         <p className="moa-mono"><i className="dot" /> Open to new Mentors and Learners</p>
         <p className="about-lead">Visuals for people who learn out loud.</p>

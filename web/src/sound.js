@@ -2,7 +2,7 @@
 // Hiss (filtered pink-ish noise), motor hum, random dust clicks. Starts only after a user gesture; scratching opens the filter.
 import { useSyncExternalStore } from 'react';
 
-let ctx = null, master = null, nodes = null, timer = 0, clickBuf = null, state = { on: false };
+let ctx = null, master = null, vol = null, level = 1, nodes = null, timer = 0, clickBuf = null, state = { on: false };
 const subs = new Set(); const emit = (o) => { state = { ...state, ...o }; subs.forEach((f) => f()); };
 const store = (v) => { try { sessionStorage.setItem('ss.sound', v); } catch { /* storage unavailable */ } };
 
@@ -12,7 +12,8 @@ function pink(c, secs) {
   return b;
 }
 function build() {
-  master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination); master.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.2);
+  vol = ctx.createGain(); vol.gain.value = level; vol.connect(ctx.destination); // user volume, separate from the fade
+  master = ctx.createGain(); master.gain.value = 0; master.connect(vol); master.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.2);
   const n = ctx.createBufferSource(); n.buffer = pink(ctx, 3); n.loop = true;
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2800;
   const g = ctx.createGain(); g.gain.value = 0.05; n.connect(lp).connect(g).connect(master); n.start();
@@ -39,6 +40,7 @@ export const sound = {
     const old = nodes; setTimeout(() => { try { old.n.stop(); old.o.stop(); } catch { /* already stopped */ } }, 600);
     nodes = null; emit({ on: false }); store('0');
   },
+  volume(v) { level = Math.max(0, Math.min(1, v)); if (vol) vol.gain.setTargetAtTime(level, ctx.currentTime, 0.05); },
   toggle() { return state.on ? sound.disable() : sound.enable(); },
   scratch(on) { if (!nodes) return; nodes.lp.frequency.setTargetAtTime(on ? 6500 : 2800, ctx.currentTime, 0.05); nodes.g.gain.setTargetAtTime(on ? 0.18 : 0.05, ctx.currentTime, 0.05); },
 };

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { sound } from '../sound.js';
 
-const seen = () => { try { return sessionStorage.getItem('ss.gate') === '1'; } catch { return false; } };
+export const gateSeen = () => { try { return sessionStorage.getItem('ss.gate') === '1'; } catch { return false; } };
 
 /** Entry screen, after the reference: pick sound or silence, then the record starts. Shown once per browser session. */
-export default function Gate() {
-  const [open, setOpen] = useState(() => !seen()); const [leaving, setLeaving] = useState(false);
+export default function Gate({ onEnter }) {
+  const [open, setOpen] = useState(() => !gateSeen()); const [leaving, setLeaving] = useState(false);
   useEffect(() => {
     if (!open) return;
     document.body.style.overflow = 'hidden';
@@ -14,8 +14,9 @@ export default function Gate() {
   }, [open]); // eslint-disable-line
   function enter(withSound) {
     try { sessionStorage.setItem('ss.gate', '1'); } catch { /* fine */ }
+    onEnter?.();
     if (withSound) sound.enable(); // this click is the user gesture browsers require for audio
-    setLeaving(true); setTimeout(() => setOpen(false), 520);
+    setLeaving(true); setTimeout(() => setOpen(false), 900);
   }
   if (!open) return null;
   return (

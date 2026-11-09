@@ -4,12 +4,16 @@ import { useAuth } from '../auth.jsx';
 import { useSkills } from '../lib.js';
 import { useTheme } from '../theme.js';
 import VinylRecord from '../components/VinylRecord.jsx';
-import Gate from '../components/Gate.jsx';
+import Gate, { gateSeen } from '../components/Gate.jsx';
+import Macro from '../components/Macro.jsx';
+import SideB from '../components/SideB.jsx';
+import CassetteTimeline from '../components/CassetteTimeline.jsx';
 import DragChip from '../components/DragChip.jsx';
 import AboutRecord from '../components/AboutRecord.jsx';
 import { sound, useSound } from '../sound.js';
 import './landing-extra.css';
 import './landing.css';
+import './landing-motion.css';
 
 const clock = () => { const d = new Date(), o = -d.getTimezoneOffset() / 60; return `${d.toTimeString().slice(0, 5)} GMT${o >= 0 ? '+' : '-'}${Math.abs(o)}`; };
 const TRACKS = [
@@ -26,21 +30,35 @@ export default function Landing() {
   const [time, setTime] = useState(clock);
   const [scratch, setScratch] = useState(false);
   const track = useRef(), mag = useRef();
-  const soundOn = useSound();
+  const soundOn = useSound(); const [entered, setEntered] = useState(gateSeen);
   const onScratch = useCallback((v) => { setScratch(v); sound.scratch(v); }, []);
   useEffect(() => { const t = setInterval(() => setTime(clock()), 20000); return () => clearInterval(t); }, []);
 
-  // Scroll drives one CSS variable (--p, 0 to 1) for the zoom. No React state, one rAF per scroll frame.
+  // One scroll listener scrubs the whole sequence by writing CSS variables (no React state, one rAF per frame).
   useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { track.current.classList.add('nozoom'); return; }
+    const el = track.current, root = el.parentElement;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { el.classList.add('nozoom'); return; }
+    const ph = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
+    const KN = [[0, 0], [0.2, Math.log(22)], [0.45, Math.log(355)], [0.5, Math.log(355)], [0.62, 0]]; // readout in log space: x1 -> x22 -> x355, then back out
+    const lnm = (p) => { for (let k = 1; k < KN.length; k++) if (p <= KN[k][0]) { const [p0, v0] = KN[k - 1], [p1, v1] = KN[k]; return v0 + (v1 - v0) * ph(p, p0, p1); } return 0; };
     let raf = 0;
     const update = () => {
       raf = 0;
-      const r = track.current.getBoundingClientRect(), span = r.height - innerHeight;
+      const r = el.getBoundingClientRect(), span = r.height - innerHeight;
       const p = Math.max(0, Math.min(1, span > 0 ? -r.top / span : 0));
-      track.current.style.setProperty('--p', p.toFixed(4));
-      track.current.classList.toggle('zoomed', p > 0.1);
-      if (mag.current) { const m = Math.exp(p * Math.log(278)); mag.current.textContent = `×${m < 10 ? m.toFixed(1) : Math.round(m)}`; } // exponential, like a real macro lens: ×1 to ×278
+      const a = ph(p, 0, 0.2), b = ph(p, 0.2, 0.45), c = ph(p, 0.5, 0.66), d = ph(p, 0.68, 0.76), f = ph(p, 0.76, 0.86);
+      const set = (k, v) => el.style.setProperty(k, typeof v === 'number' ? v.toFixed(3) : v);
+      set('--p', p.toFixed(4)); set('--a', a); set('--b', b);
+      set('--scale', 1 + 2.2 * a - 2.2 * c);                                   // dive toward the label, then pull back out
+      set('--stageO', (p < 0.5 ? 1 - ph(p, 0.2, 0.27) : ph(p, 0.5, 0.58)) * (1 - ph(p, 0.745, 0.76)));
+      set('--macroO', ph(p, 0.2, 0.27) * (1 - ph(p, 0.5, 0.58)));
+      set('--waveO', ph(p, 0.38, 0.43) * (1 - ph(p, 0.47, 0.52)));
+      set('--aY', 1 - 0.96 * d);                                               // Side A tips edge-on ...
+      set('--bY', 0.04 + 0.76 * f); set('--bO', ph(p, 0.745, 0.76));          // ... and Side B tips up
+      set('--capO', ph(p, 0.78, 0.84));
+      el.classList.toggle('zoomed', p > 0.04);
+      if (mag.current) { const m = Math.exp(lnm(p)); mag.current.textContent = `×${m < 10 ? m.toFixed(1) : Math.round(m)}`; mag.current.parentElement.style.opacity = (ph(p, 0.03, 0.07) * (1 - ph(p, 0.6, 0.64))).toFixed(3); }
+      const dh = document.documentElement.scrollHeight - innerHeight; root.style.setProperty('--sp', (dh > 0 ? scrollY / dh : 0).toFixed(4));
     };
     const on = () => { if (!raf) raf = requestAnimationFrame(update); };
     update(); addEventListener('scroll', on, { passive: true }); addEventListener('resize', on);
@@ -50,8 +68,8 @@ export default function Landing() {
   const half = Math.ceil((skills?.length || 0) / 2);
   const href = (s) => (user ? `/discover?skillId=${s.id}` : '/register');
   return (
-    <div className="moa-root" data-theme={theme}>
-      <Gate /><DragChip />
+    <div className={`moa-root ${entered ? '' : 'pre'}`} data-theme={theme}>
+      <Gate onEnter={() => setEntered(true)} /><DragChip />
       <div className="zoom-track" ref={track}>
         <div className="zoom-bar" aria-hidden="true" />
         <div className="moa">
@@ -62,6 +80,7 @@ export default function Landing() {
                 : <><Link to="/login" className="hide-s">Log in</Link><Link to="/register">Join</Link></>}
               <span className="hide-s">{time}</span>
               <button className="pill" onClick={() => sound.toggle()} aria-pressed={soundOn}>Sound <i /></button>
+              {soundOn && <input type="range" className="vol hide-s" aria-label="Volume" min="0" max="1" step="0.05" defaultValue="1" onChange={(e) => sound.volume(+e.target.value)} />}
               <button className="pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>
             </nav>
           </header>
@@ -69,9 +88,9 @@ export default function Landing() {
           <div className="moa-row moa-mono fade"><span>Side {side}</span><span className="hide-s">Scroll to dive into the groove</span><span>Est. 2026</span></div>
 
           <VinylRecord skills={skills} side={side} onScratch={onScratch} />
-          <div className="vinyl-close" aria-hidden="true"><div className="close-label"><span>SkillSwap · Side {side}</span></div></div>
-
-          <div className="macro" aria-hidden="true"><div className="macro-groove" /><span className="macro-tag">Stylus-eye view</span></div>
+          <Macro /><SideB />
+          <p className="wave-copy" aria-hidden="true">Every groove is a waveform. Every swap starts the same way: needle down, then say hello.</p>
+          <span className="flip-cap moa-mono" aria-hidden="true">Flip it. Side B is etched.</span>
           <div className="readout moa-mono" aria-hidden="true"><span>Magnification</span><b ref={mag}>×1.0</b><span>Groove pitch = 0.1 mm</span></div>
 
           <div className="moa-copy fade">
@@ -94,15 +113,8 @@ export default function Landing() {
         </div>
       </div>
 
-      <AboutRecord />
-
-      <section className="tracks" aria-labelledby="how">
-        <p className="moa-mono">Tracklist</p>
-        <h2 id="how" className="sr">How it works</h2>
-        <ol>{TRACKS.map(([n, h, p, tag]) => (
-          <li key={n}><span className="moa-mono">{n}</span><h3>{h}</h3><p>{p}</p><span className="moa-mono tag-r">{tag}</span></li>
-        ))}</ol>
-      </section>
+      <AboutRecord record={false} />
+      <CassetteTimeline />
 
       {skills?.length > 0 && (
         <section className="sleeve" aria-labelledby="sk">
