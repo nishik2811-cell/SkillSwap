@@ -11,7 +11,7 @@ export async function loadUser(req, _res, next) {
        FROM auth_sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > NOW() AND u.status = 'active'`, [sha256(sid)]);
     req.user = u || null;
-    if (u) pool.query('UPDATE users SET last_active_at = NOW() WHERE id = ? AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL 5 MINUTE)', [u.id]).catch(() => {});
+    if (u) pool.query("UPDATE users SET last_active_at = NOW() WHERE id = ? AND (last_active_at IS NULL OR last_active_at < NOW() - INTERVAL '5 minutes')", [u.id]).catch(() => {});
   }
   next();
 }
