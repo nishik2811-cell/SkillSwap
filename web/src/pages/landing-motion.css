@@ -71,3 +71,24 @@
 @media (max-width: 760px) { .moa-foot { display: flex; } }
 .moa-root .pill.rpm { font: inherit; letter-spacing: inherit; text-transform: inherit; min-width: 9.5em; justify-content: center; cursor: pointer; font-variant-numeric: tabular-nums; background: none; color: var(--fg); transition: border-color .25s, color .25s; }
 .moa-root .pill.rpm:hover { border-color: var(--accent) !important; color: var(--accent); }
+
+/* footer wordmark: sized from its container (text is ~7.5em wide), so it fits exactly at any screen width instead of being clipped */
+.end { container-type: inline-size; }
+.wordmark { font-size: 12.7cqw; text-align: center; }
+
+/* light theme: while the camera is inside the (always dark) groove field, the overlaid text eases to light ink */
+.moa-root[data-theme='light'] :is(.moa-head, .moa-row, .readout, .wave-copy) {
+  --fg: color-mix(in srgb, #ecebe4 calc(var(--dive, 0) * 100%), #0c0b0f);
+  --muted: color-mix(in srgb, #b4b0bd calc(var(--dive, 0) * 100%), #6a6672);
+  --line: color-mix(in srgb, rgba(236, 235, 228, .2) calc(var(--dive, 0) * 100%), rgba(12, 11, 15, .2));
+  color: var(--fg);
+}
+.moa-root[data-theme='light'] .moa-head .pill { border-color: var(--fg) !important; }
+.moa-root[data-theme='light'] .moa-row { color: var(--muted); }
+.wave-copy { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .c-top { font-size: .8rem; gap: 8px; } .c-top span { font-size: .62rem; white-space: nowrap; }
+  .c-sub { font-size: .58rem; letter-spacing: .06em; }
+}
+@media (max-width: 760px) { .cassette { margin-bottom: 30px; max-width: min(340px, 88vw); } .tape { gap: 10px; } }

@@ -35,7 +35,7 @@ export function cameraAt(s, aspect = 1.6, mx = 0, my = 0) {
   }
   const o = Math.min(1, dist / 1.5), ay = mx * 0.2 * o, ax = my * 0.1 * o, cy = Math.cos(ay), sy = Math.sin(ay);   // a little orbit with the pointer, fading out up close
   dir = v3.norm([dir[0] * cy + dir[2] * sy, dir[1] + ax, -dir[0] * sy + dir[2] * cy]);
-  const fit = Math.max(1, 1.5 / aspect), d2 = dist * (1 + (fit - 1) * clamp01(dist / 3));       // narrow screens: back off so the whole record fits
+  const fit = Math.max(1, 4.2 / aspect / D0), d2 = dist * (1 + (fit - 1) * clamp01(dist / 3));       // narrow screens: back off so the whole record fits
   up = 0.15 * (1 - smooth(0.02, 0.2, s)) * (1 - smooth(0.88, 0.97, s)); // hero: sit the record in the upper part of the frame
   return { cam: v3.add(tgt, v3.mul(dir, d2)), tgt, dist, flip, off: up };
 }
@@ -46,7 +46,7 @@ in vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
 const FRAG = `#version 300 es
 precision highp float;
 out vec4 o;
-uniform vec2 uRes, uLight; uniform float uRot, uFlip, uSide, uOff;
+uniform vec2 uRes, uLight; uniform float uRot, uFlip, uSide, uOff, uDive;
 uniform vec3 uCam, uTgt, uBg, uAcc;
 uniform sampler2D uTexA, uTexL, uTexB;
 const float TAU = 6.2831853;
@@ -67,7 +67,7 @@ void main(){
   vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y; uv.y -= uOff;
   vec3 f = normalize(uTgt - uCam), rr = normalize(cross(f, vec3(0.0, 1.0, 0.0))), up = cross(rr, f);
   vec3 rd = normalize(f * 1.85 + uv.x * rr + uv.y * up);
-  vec3 bg = uBg * (1.0 - 0.18 * dot(uv, uv));
+  vec3 bg = mix(uBg, vec3(0.045, 0.045, 0.055), uDive) * (1.0 - 0.18 * dot(uv, uv));   // inside the groove the world goes dark, whatever the theme
   vec3 N = vec3(0.0, cos(uFlip), sin(uFlip)), U = vec3(1.0, 0.0, 0.0), V = vec3(0.0, -sin(uFlip), cos(uFlip));
   float den = dot(rd, N);
   float t = -dot(uCam, N) / den;
@@ -199,7 +199,7 @@ export default function Record3D({ side, theme, rpm = 33, onScratch }) {
     gl.useProgram(prog);
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const U = {}; for (const k of ['uRes', 'uLight', 'uRot', 'uFlip', 'uSide', 'uOff', 'uCam', 'uTgt', 'uBg', 'uAcc', 'uTexA', 'uTexL', 'uTexB']) U[k] = gl.getUniformLocation(prog, k);
+    const U = {}; for (const k of ['uRes', 'uLight', 'uRot', 'uFlip', 'uSide', 'uOff', 'uDive', 'uCam', 'uTgt', 'uBg', 'uAcc', 'uTexA', 'uTexL', 'uTexB']) U[k] = gl.getUniformLocation(prog, k);
     const tex = [0, 1, 2].map((i) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(U[['uTexA', 'uTexL', 'uTexB'][i]], i); return t; });
     const upload = (i, c) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, tex[i]); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); };
     let bg = [0.05, 0.05, 0.06], acc = [0.35, 0.42, 1];
@@ -251,13 +251,14 @@ export default function Record3D({ side, theme, rpm = 33, onScratch }) {
       cur = cameraAt(s, W / H, smx, smy);
       rot += omega * dt * Math.max(0.004, Math.min(1, cur.dist / D0));     // slow the platter as we close in, so the needle's-eye view drifts instead of smearing
       gl.uniform2f(U.uRes, canvas.width, canvas.height); gl.uniform1f(U.uRot, rot); gl.uniform1f(U.uFlip, cur.flip); gl.uniform1f(U.uSide, sMix); gl.uniform1f(U.uOff, cur.off);
+      const dive = smooth(0.08, 0.22, s) * (1 - smooth(0.6, 0.7, s)); gl.uniform1f(U.uDive, dive); root.style.setProperty('--dive', dive.toFixed(3));   // the page text reads --dive to stay legible over the dark groove field
       gl.uniform3fv(U.uCam, cur.cam); gl.uniform3fv(U.uTgt, cur.tgt); gl.uniform3fv(U.uBg, bg); gl.uniform3fv(U.uAcc, acc); gl.uniform2f(U.uLight, -0.55 + smx * 0.6, 0.35 + smy * 0.5);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       // a slow GPU? render at lower resolution rather than stutter
       if (dt > 0.034) { if (++slowFrames > 20 && scale > 0.5) { scale *= 0.8; slowFrames = 0; resize(); } } else slowFrames = Math.max(0, slowFrames - 1);
     };
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); delete root.dataset.gl; };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); delete root.dataset.gl; root.style.removeProperty('--dive'); };
   }, [onScratch]);
 
   return <canvas ref={cv} className="rec3d" role="img" aria-label="A vinyl record. Scroll to dive into its groove. Drag it to scratch." />;
