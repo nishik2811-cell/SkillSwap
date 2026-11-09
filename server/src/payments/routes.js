@@ -92,6 +92,17 @@ router.get('/payments/:id', handle(async (req, res) => {
   res.json(shape(p, req.user.id, await refundsFor([p.id])));
 }));
 
+// a learner can ask for a human review of a payment (outside the automatic refund policy)
+router.post('/payments/:id/dispute', handle(async (req, res) => {
+  const p = z.object({ reason: z.string().trim().min(10).max(1000) }).safeParse(req.body); if (!p.success) return bad(res, p.error);
+  const [[pay]] = await pool.query("SELECT id, status FROM payments WHERE id = ? AND learner_id = ?", [Number(req.params.id), req.user.id]);
+  if (!pay) return res.status(404).json({ error: 'not_found' });
+  if (pay.status !== 'paid') return res.status(409).json({ error: 'not_disputable' });
+  try { await pool.query('INSERT INTO disputes (payment_id, opened_by, reason) VALUES (?,?,?)', [pay.id, req.user.id, p.data.reason]); }
+  catch (e) { if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'already_disputed' }); throw e; }
+  res.status(201).json({ ok: true });
+}));
+
 // ---------- earnings & payouts ----------
 router.get('/earnings', handle(async (req, res) => {
   const summary = await pay.earnings(req.user.id);

@@ -136,3 +136,21 @@ test('realtime: socket needs a valid session; request pushes a live notification
   // other users' sockets do not receive it
   sock.close();
 });
+
+test('socket token: cross-origin login for the live socket, bound to one user, short-lived, unforgeable', async () => {
+  const [a, b] = await Promise.all([makeUser('t1'), makeUser('t2')]);
+  assert.equal((await call('/auth/socket-token')).status, 401);
+  const tok = (await call('/auth/socket-token', 'GET', null, a)).body.token; assert.ok(tok);
+  const url = `http://127.0.0.1:${srv.address().port}`;
+  const open = (auth) => new Promise((res) => { const s = connect(url, { auth, reconnection: false, transports: ['websocket'] }); s.on('connect', () => res({ ok: true, s })); s.on('connect_error', (e) => res({ ok: false, msg: e.message, s })); });
+  const good = await open({ token: tok }); assert.equal(good.ok, true); // no cookie at all
+  const got = new Promise((res) => good.s.on('notification', res));
+  await call('/connections', 'POST', { username: a.username }, b);
+  assert.equal((await Promise.race([got, new Promise((_, rej) => setTimeout(() => rej(new Error('no push')), 3000))])).type, 'connection_request'); // it is really a's socket
+  good.s.close();
+  for (const bad of [tok.slice(0, -3) + 'abc', tok.split('.')[0] + '.', 'garbage', `${Buffer.from(JSON.stringify({ uid: 1, exp: 9999999999 })).toString('base64url')}.${tok.split('.')[1]}`]) {
+    const r = await open({ token: bad }); assert.equal(r.ok, false); assert.equal(r.msg, 'unauthenticated'); r.s.close();
+  }
+  const { signSocketToken } = await import('./src/auth/crypto.js');
+  const expired = await open({ token: signSocketToken(1, -5) }); assert.equal(expired.ok, false); expired.s.close(); // expired
+});

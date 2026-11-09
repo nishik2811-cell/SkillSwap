@@ -250,6 +250,17 @@ router.post('/bookings/:id/cancel', handle(async (req, res) => {
   res.json({ ok: true, refund });
 }));
 
+// report a session (inappropriate content or behaviour); admins review it with the user reports
+router.post('/sessions/:id/report', handle(async (req, res) => {
+  const p = z.object({ reason: z.enum(['spam', 'harassment', 'inappropriate', 'fake_profile', 'scam', 'other']), details: z.string().trim().max(1000).optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error);
+  const [[s]] = await pool.query('SELECT id, mentor_id FROM learning_sessions WHERE id = ?', [Number(req.params.id)]);
+  if (!s || s.mentor_id === req.user.id) return res.status(404).json({ error: 'not_found' });
+  const [[dup]] = await pool.query("SELECT 1 x FROM reports WHERE reporter_id = ? AND session_id = ? AND status = 'open'", [req.user.id, s.id]);
+  if (dup) return res.status(409).json({ error: 'already_reported' });
+  await pool.query('INSERT INTO reports (reporter_id, target_user_id, session_id, reason, details) VALUES (?,?,?,?,?)', [req.user.id, s.mentor_id, s.id, p.data.reason, p.data.details || null]);
+  res.status(201).json({ ok: true });
+}));
+
 // ---------- reviews ----------
 router.post('/bookings/:id/review', handle(async (req, res) => {
   const p = z.object({ rating: z.number().int().min(1).max(5), comment: z.string().trim().max(1000).optional() }).safeParse(req.body); if (!p.success) return bad(res, p.error);

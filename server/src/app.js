@@ -10,9 +10,11 @@ import { router as chat } from './chat/routes.js';
 import { router as sessions } from './sessions/routes.js';
 import { router as payments, webhookHandler } from './payments/routes.js';
 import { router as meetings } from './meetings/routes.js';
+import { router as admin } from './admin/routes.js';
 import { loadUser } from './auth/middleware.js';
 
 export const app = express();
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1)); // behind the host's proxy (and Vercel's): real client IPs for rate limiting, correct https for secure cookies
 app.use(helmet());
 app.use(cors({ origin: process.env.WEB_ORIGIN, credentials: true }));
 // the webhook signature covers the RAW bytes, so this route must be parsed as raw before express.json touches anything
@@ -37,6 +39,7 @@ app.use('/api/v1', chat);
 app.use('/api/v1', sessions);
 app.use('/api/v1', payments);
 app.use('/api/v1', meetings);
+app.use('/api/v1', admin);
 app.use('/uploads', express.static(UPLOAD_DIR, { index: false, dotfiles: 'deny' }));
 
 app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
@@ -44,3 +47,5 @@ app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(500).json({ error: 'internal_error' });
 });
+
+export default app; // Vercel imports this (no listen); local dev and Docker use src/index.js, which adds Socket.IO and the timers

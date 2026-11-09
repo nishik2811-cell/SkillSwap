@@ -6,7 +6,8 @@
     "dev": "node --watch --env-file=../.env src/index.js",
     "start": "node --env-file=../.env src/index.js",
     "migrate": "node --env-file=../.env src/migrate.js",
-    "test": "NODE_ENV=test node --test --env-file=../.env"
+    "test": "NODE_ENV=test node --test --env-file=../.env",
+    "make-admin": "node --env-file=../.env scripts/make-admin.js"
   },
   "dependencies": {
     "cookie": "^2.0.2",

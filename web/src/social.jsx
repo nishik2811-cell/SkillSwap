@@ -22,7 +22,15 @@ export function SocialProvider({ children }) {
   useEffect(() => {
     if (!user) { setConn({ received: [], sent: [], connected: [] }); setNotes([]); setUnread(0); return; }
     refreshConnections(); refreshNotes(); refreshChatUnread();
-    const socket = io({ withCredentials: true }); setSocket(socket);
+    // Live push runs on the API host (a long-lived process). Website and API are different origins in production, where the
+    // login cookie is not sent to the socket, so it logs in with a short-lived signed token (fetched again on every reconnect).
+    // VITE_REALTIME_URL is the API origin. Without it in production we skip the socket and the app works without instant updates.
+    const rt = import.meta.env.VITE_REALTIME_URL;
+    if (import.meta.env.PROD && !rt) return;
+    const socket = io(rt || undefined, rt
+      ? { auth: (cb) => api('/auth/socket-token').then((r) => cb({ token: r.token })).catch(() => cb({})) }
+      : { withCredentials: true });
+    setSocket(socket);
     socket.on('message', (m) => { if (m.sender.username !== user.username) refreshChatUnread(); });
     socket.on('read', (r) => { if (r.username === user.username) refreshChatUnread(); });
     socket.on('conversations_changed', refreshChatUnread);

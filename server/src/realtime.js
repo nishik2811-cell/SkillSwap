@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { parseCookie } from 'cookie';
 import { pool } from './db.js';
-import { sha256 } from './auth/crypto.js';
+import { sha256, verifySocketToken } from './auth/crypto.js';
 import { COOKIE } from './auth/middleware.js';
 
 let io = null;
@@ -20,10 +20,15 @@ export function initRealtime(httpServer) {
   io = new Server(httpServer, { cors: { origin: process.env.WEB_ORIGIN, credentials: true } });
   io.use(async (socket, next) => {
     try {
-      const sid = parseCookie(socket.handshake.headers.cookie || '')[COOKIE];
-      const [[u]] = sid ? await pool.query(
-        `SELECT u.id, u.username FROM auth_sessions s JOIN users u ON u.id = s.user_id
-         WHERE s.token_hash = ? AND s.expires_at > NOW() AND u.status = 'active'`, [sha256(sid)]) : [[]];
+      // Cross-origin (website and API on different hosts): a signed token from /auth/socket-token. Same-origin dev: the session cookie.
+      const tokenUid = socket.handshake.auth?.token ? verifySocketToken(socket.handshake.auth.token) : null;
+      if (socket.handshake.auth?.token && !tokenUid) return next(new Error('unauthenticated'));
+      const sid = tokenUid ? null : parseCookie(socket.handshake.headers.cookie || '')[COOKIE];
+      const [[u]] = tokenUid
+        ? await pool.query("SELECT id, username FROM users WHERE id = ? AND status = 'active'", [tokenUid])
+        : sid ? await pool.query(
+          `SELECT u.id, u.username FROM auth_sessions s JOIN users u ON u.id = s.user_id
+           WHERE s.token_hash = ? AND s.expires_at > NOW() AND u.status = 'active'`, [sha256(sid)]) : [[]];
       if (!u) return next(new Error('unauthenticated'));
       socket.data.userId = u.id; socket.data.username = u.username;
       next();
@@ -55,3 +60,4 @@ export const emitToUser = (userId, event, payload) => io?.to(`user:${userId}`).e
 export const emitToConversation = (cid, event, payload) => io?.to(`conv:${cid}`).emit(event, payload);
 export const joinConversation = (userIds, cid) => userIds.forEach((id) => io?.in(`user:${id}`).socketsJoin(`conv:${cid}`));
 export const leaveConversation = (userId, cid) => io?.in(`user:${userId}`).socketsLeave(`conv:${cid}`);
+export const disconnectUser = (userId) => io?.in(`user:${userId}`).disconnectSockets(true); // used when an account is suspended

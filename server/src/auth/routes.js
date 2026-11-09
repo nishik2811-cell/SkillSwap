@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { pool } from '../db.js';
-import { hashPassword, verifyPassword, newToken, sha256 } from './crypto.js';
+import { hashPassword, verifyPassword, newToken, sha256, signSocketToken } from './crypto.js';
 import { sendMail } from './mail.js';
 import { COOKIE, requireAuth } from './middleware.js';
 
@@ -105,6 +105,8 @@ router.post('/logout', wrap(async (req, res) => {
   if (sid) await pool.query('DELETE FROM auth_sessions WHERE token_hash = ?', [sha256(sid)]);
   res.clearCookie(COOKIE, { path: '/' }).json({ ok: true });
 }));
+
+router.get('/socket-token', requireAuth, (req, res) => res.json({ token: signSocketToken(req.user.id) }));
 
 router.get('/me', requireAuth, (req, res) => {
   const u = req.user;

@@ -11,7 +11,9 @@ export const router = Router();
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 const bad = (res, err) => res.status(400).json({ error: 'invalid_input', details: err.flatten().fieldErrors });
 
-export const UPLOAD_DIR = new URL('../../uploads/', import.meta.url).pathname;
+// Uploads dir: UPLOAD_DIR env wins; on Vercel only /tmp is writable (and it is NOT persistent: use object storage for real uploads).
+const envDir = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : null);
+export const UPLOAD_DIR = envDir ? envDir.replace(/\/?$/, '/') : new URL('../../uploads/', import.meta.url).pathname;
 const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
 const upload = multer({
   dest: UPLOAD_DIR + 'tmp/', limits: { fileSize: 2 * 1024 * 1024, files: 1 },

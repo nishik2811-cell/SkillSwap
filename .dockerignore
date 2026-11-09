@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+.git
+.env
+.tools
+web
+!web/package.json
+**/dist
+server/uploads
+archive
+*.md
