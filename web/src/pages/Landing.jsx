@@ -4,6 +4,7 @@ import { useAuth } from '../auth.jsx';
 import { useSkills } from '../lib.js';
 import { useTheme } from '../theme.js';
 import VinylRecord from '../components/VinylRecord.jsx';
+import Record3D, { magAt } from '../components/Record3D.jsx';
 import Macro from '../components/Macro.jsx';
 import SideB from '../components/SideB.jsx';
 import CassetteTimeline from '../components/CassetteTimeline.jsx';
@@ -51,12 +52,12 @@ export default function Landing() {
       set('--scale', Math.exp(Math.log(14) * (a - c)));                         // one steady camera move: x1 -> x14 into the grooves, then back out
       set('--stageO', (p < 0.5 ? 1 - ph(p, 0.2, 0.27) : ph(p, 0.5, 0.58)) * (1 - ph(p, 0.745, 0.76)));
       set('--macroO', ph(p, 0.2, 0.27) * (1 - ph(p, 0.5, 0.58)));
-      set('--waveO', ph(p, 0.38, 0.43) * (1 - ph(p, 0.47, 0.52)));
+      set('--waveO', ph(p, 0.44, 0.5) * (1 - ph(p, 0.56, 0.62)));
       set('--aY', 1 - 0.96 * d);                                               // Side A tips edge-on ...
       set('--bY', 0.04 + 0.76 * f); set('--bO', ph(p, 0.745, 0.76));          // ... and Side B tips up
-      set('--capO', ph(p, 0.78, 0.84));
+      set('--capO', ph(p, 0.9, 0.95));
       el.classList.toggle('zoomed', p > 0.04);
-      if (mag.current) { const m = Math.exp(lnm(p)); mag.current.textContent = `×${m < 10 ? m.toFixed(1) : Math.round(m)}`; mag.current.parentElement.style.opacity = (ph(p, 0.03, 0.07) * (1 - ph(p, 0.6, 0.64))).toFixed(3); }
+      if (mag.current) { const m = magAt(p); mag.current.textContent = `×${m < 10 ? m.toFixed(1) : Math.round(m)}`; mag.current.parentElement.style.opacity = (ph(p, 0.03, 0.07) * (1 - ph(p, 0.6, 0.64))).toFixed(3); }
       const dh = document.documentElement.scrollHeight - innerHeight; root.style.setProperty('--sp', (dh > 0 ? scrollY / dh : 0).toFixed(4));
     };
     const on = () => { if (!raf) raf = requestAnimationFrame(update); };
@@ -85,6 +86,7 @@ export default function Landing() {
           <div className="moa-row moa-mono fade"><span>Side {side}</span><span className="hide-s">Scroll to dive into the groove</span><span>Est. 2026</span></div>
 
           <VinylRecord skills={skills} side={side} onScratch={onScratch} />
+          <Record3D side={side} theme={theme} onScratch={onScratch} />
           <Macro /><SideB />
           <p className="wave-copy" aria-hidden="true">Every groove is a waveform. Every swap starts the same way: needle down, then say hello.</p>
           <span className="flip-cap moa-mono" aria-hidden="true">Flip it. Side B is etched.</span>
