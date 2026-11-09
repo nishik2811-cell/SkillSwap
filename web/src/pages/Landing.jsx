@@ -38,7 +38,7 @@ export default function Landing() {
     const el = track.current, root = el.parentElement;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { el.classList.add('nozoom'); return; }
     const ph = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
-    const KN = [[0, 0], [0.2, Math.log(22)], [0.45, Math.log(355)], [0.5, Math.log(355)], [0.62, 0]]; // readout in log space: x1 -> x22 -> x355, then back out
+    const KN = [[0, 0], [0.2, Math.log(14)], [0.45, Math.log(355)], [0.5, Math.log(355)], [0.62, 0]]; // readout in log space: x1 -> x22 -> x355, then back out
     const lnm = (p) => { for (let k = 1; k < KN.length; k++) if (p <= KN[k][0]) { const [p0, v0] = KN[k - 1], [p1, v1] = KN[k]; return v0 + (v1 - v0) * ph(p, p0, p1); } return 0; };
     let raf = 0;
     const update = () => {
@@ -48,7 +48,7 @@ export default function Landing() {
       const a = ph(p, 0, 0.2), b = ph(p, 0.2, 0.45), c = ph(p, 0.5, 0.66), d = ph(p, 0.68, 0.76), f = ph(p, 0.76, 0.86);
       const set = (k, v) => el.style.setProperty(k, typeof v === 'number' ? v.toFixed(3) : v);
       set('--p', p.toFixed(4)); set('--a', a); set('--b', b);
-      set('--scale', 1 + 2.2 * a - 2.2 * c);                                   // dive toward the label, then pull back out
+      set('--scale', Math.exp(Math.log(14) * (a - c)));                         // one steady camera move: x1 -> x14 into the grooves, then back out
       set('--stageO', (p < 0.5 ? 1 - ph(p, 0.2, 0.27) : ph(p, 0.5, 0.58)) * (1 - ph(p, 0.745, 0.76)));
       set('--macroO', ph(p, 0.2, 0.27) * (1 - ph(p, 0.5, 0.58)));
       set('--waveO', ph(p, 0.38, 0.43) * (1 - ph(p, 0.47, 0.52)));

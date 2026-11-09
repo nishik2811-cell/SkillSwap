@@ -2,24 +2,11 @@ import { useEffect, useMemo, useRef } from 'react';
 
 const FALLBACK = ['Guitar', 'Python', 'Photography', 'Hindi', 'Cooking', 'UI/UX Design', 'Piano', 'Spanish', 'Fitness', 'JavaScript', 'Video Editing', 'English'];
 
-/* The record is drawn in code: grooves on one canvas (painted once), a fixed sheen, and a spinning label.
+/* The record is drawn in code: grooves as resolution-independent CSS gradients (they stay sharp at any zoom), a fixed sheen, and a spinning label.
    Spin is one rAF loop touching a single transform. Drag to scratch it. 33 1/3 rpm = 200 deg/s. */
 export default function VinylRecord({ skills, side, onScratch }) {
-  const grooves = useRef(), spinner = useRef(), disc = useRef();
+  const spinner = useRef(), disc = useRef();
   const names = useMemo(() => (skills?.length ? skills.map((s) => s.name) : FALLBACK).map((n) => n.toUpperCase()), [skills]);
-
-  useEffect(() => {
-    const c = grooves.current, S = Math.min(1400, Math.round(c.parentElement.clientWidth * Math.min(devicePixelRatio || 1, 2))) || 1000;
-    c.width = c.height = S; const x = c.getContext('2d'), R = S / 2;
-    const g = x.createRadialGradient(R, R, R * 0.2, R, R, R); g.addColorStop(0, '#0d0d11'); g.addColorStop(0.7, '#17171c'); g.addColorStop(1, '#0a0a0d');
-    x.fillStyle = g; x.beginPath(); x.arc(R, R, R, 0, 7); x.fill();
-    for (let r = R * 0.34; r < R * 0.965; r += S / 330) { // fine grooves, a few wider gaps between "tracks"
-      const gap = [0.52, 0.7, 0.84].some((t) => Math.abs(r / R - t) < 0.006);
-      x.strokeStyle = gap ? 'rgba(0,0,0,.9)' : `rgba(255,255,255,${0.025 + ((r * 7919) % 1) * 0.05})`; x.lineWidth = gap ? S / 160 : 1;
-      x.beginPath(); x.arc(R, R, r, 0, 7); x.stroke();
-    }
-    x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = S / 300; x.beginPath(); x.arc(R, R, R * 0.992, 0, 7); x.stroke();
-  }, []);
 
   useEffect(() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -47,7 +34,7 @@ export default function VinylRecord({ skills, side, onScratch }) {
         <div className="vinyl-rim" />
         <div className="vinyl-disc" ref={disc} role="img" aria-label="A vinyl record. Drag it to scratch.">
           <div className="vinyl-spin" ref={spinner}>
-            <canvas ref={grooves} />
+            <div className="vinyl-grooves" aria-hidden="true" />
             <svg viewBox="0 0 1000 1000" className="vinyl-art" aria-hidden="true">
               <defs><path id="ring" d="M500 500 m-330 0 a330 330 0 1 1 660 0 a330 330 0 1 1 -660 0" /><path id="lring" d="M500 500 m-140 0 a140 140 0 1 1 280 0 a140 140 0 1 1 -280 0" /></defs>
               <text className="ring-text"><textPath href="#ring" textLength="2070" lengthAdjust="spacing">{ring}</textPath></text>
