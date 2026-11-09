@@ -20,8 +20,9 @@ the API creates the tables itself on startup (`server/migrations/001_schema.sql`
 
 Free-plan limits (check Render's current terms): the service sleeps after idle time and wakes on the next request, so
 reminders/refund retries only run while it is awake, live connections drop when it sleeps, and there is no persistent disk,
-so avatars and chat attachments disappear on redeploy. A free uptime pinger hitting `/api/v1/health` every 10 minutes
-keeps it awake but may exceed free hours; use object storage for uploads before real use.
+so uploads would vanish on redeploy; `render.yaml` therefore sets `FILE_STORE=db`, which also keeps every avatar and chat attachment
+in Postgres and serves it from there (fine for avatars and small files; use object storage for large media). A free uptime pinger
+hitting `/api/v1/health` every 10 minutes keeps the API awake but may exceed free hours.
 
 ## 3. Vercel (website)
 1. Import the repo, **Root Directory `web`**.
@@ -30,7 +31,9 @@ keeps it awake but may exceed free hours; use object storage for uploads before 
 
 ## 4. First admin
 Register an account, then run `node server/scripts/make-admin.js <username>` against the same `DATABASE_URL`
-(Render shell, or locally with `DATABASE_URL` set).
+(Render shell, or locally with `DATABASE_URL` set). An **Admin** link then appears in the top bar.
+
+Optional demo data: `npm run seed` (refuses to run when `NODE_ENV=production`; use it on a staging database).
 
 ## 5. Razorpay webhook
 Dashboard > Settings > Webhooks: `https://<service>.onrender.com/api/v1/webhooks/razorpay`, a secret (= `RAZORPAY_WEBHOOK_SECRET`),
@@ -40,5 +43,5 @@ events `payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `
 Any PostgreSQL 14+ with the `citext` extension: set `DATABASE_URL`, run `npm run migrate`, `npm run dev`, `npm test`.
 
 ## Known limits
-Single API instance (presence and job timers are in memory). Uploads on local disk. Payouts are marked paid by an admin by hand.
+Single API instance (presence and job timers are in memory). Uploads are on disk, mirrored in Postgres when `FILE_STORE=db`. Payouts are marked paid by an admin by hand.
 Not yet verified on the real Neon/Render/Vercel combination: it passes all 53 tests against a local PostgreSQL 18.

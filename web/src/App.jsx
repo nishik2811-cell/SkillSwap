@@ -19,6 +19,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Discover from './pages/Discover.jsx';
 import Profile from './pages/Profile.jsx';
 import Settings from './pages/Settings.jsx';
+import Admin from './pages/Admin.jsx';
 
 function Protected({ children }) {
   const { user } = useAuth(); const loc = useLocation();
@@ -27,6 +28,8 @@ function Protected({ children }) {
   if (!user.onboardingDone && loc.pathname !== '/onboarding') return <Navigate to="/onboarding" replace />;
   return children;
 }
+// the server enforces admin on every /admin API call; this only hides the page from everyone else
+function AdminOnly({ children }) { const { user } = useAuth(); return user?.role === 'admin' ? children : <div className="center"><h2>Page not found</h2></div>; }
 const P = (el) => <Protected>{el}</Protected>;
 
 export default function App() {
@@ -36,6 +39,7 @@ export default function App() {
     <Route path="/verify-email" element={<VerifyEmail />} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/onboarding" element={P(<Onboarding />)} /><Route path="/dashboard" element={P(<Dashboard />)} />
     <Route path="/discover" element={P(<Discover />)} /><Route path="/u/:username" element={P(<Profile />)} /><Route path="/wallet" element={P(<Wallet />)} /><Route path="/receipts/:id" element={P(<Receipt />)} /><Route path="/meetings" element={P(<Meetings />)} /><Route path="/room/:code" element={P(<Room />)} /><Route path="/sessions" element={P(<Sessions />)} /><Route path="/sessions/new" element={P(<SessionNew />)} /><Route path="/sessions/:id" element={P(<SessionDetail />)} /><Route path="/messages" element={P(<Messages />)} /><Route path="/messages/:id" element={P(<Messages />)} /><Route path="/connections" element={P(<Connections />)} /><Route path="/notifications" element={P(<Notifications />)} /><Route path="/settings" element={P(<Settings />)} />
+    <Route path="/admin" element={P(<AdminOnly><Admin /></AdminOnly>)} />
     <Route path="*" element={<div className="center"><h2>Page not found</h2></div>} />
   </Routes></SocialProvider></AuthProvider></BrowserRouter>;
 }

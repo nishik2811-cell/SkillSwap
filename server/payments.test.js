@@ -6,6 +6,9 @@ import { sent } from './src/auth/mail.js';
 import * as gw from './src/payments/razorpay.js';
 import { expireUnpaidBookings, retryFailedRefunds } from './src/payments/service.js';
 
+// These tests inject their own fake gateway and keys. Never let a developer's real .env keys leak in (or let this suite reach the real gateway).
+for (const k of ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_WEBHOOK_SECRET']) delete process.env[k];
+
 const run = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const srv = app.listen(0), base = `http://127.0.0.1:${srv.address().port}/api/v1`;
 const KEY = 'secret_test_key', WH = 'whsec_test';

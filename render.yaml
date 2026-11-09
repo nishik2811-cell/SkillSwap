@@ -9,6 +9,7 @@ services:
     envVars:
       - { key: NODE_ENV, value: production }
       - { key: TRUST_PROXY, value: "2" }
+      - { key: FILE_STORE, value: db }                # avatars and chat attachments are also kept in Postgres: Render's free disk is wiped on every deploy
       - { key: DATABASE_URL, sync: false }          # paste the Neon connection string
       - { key: JWT_SECRET, generateValue: true }
       - { key: WEB_ORIGIN, sync: false }            # your Vercel URL, e.g. https://skillswap-eight-chi.vercel.app

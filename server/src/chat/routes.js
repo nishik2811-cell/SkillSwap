@@ -7,6 +7,7 @@ import { mkdir, rename, unlink } from 'node:fs/promises';
 import { pool } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { UPLOAD_DIR } from '../people/routes.js';
+import { keep, forget, load } from '../files.js';
 import { notify } from '../notify.js';
 import { emitToConversation, emitToUser, joinConversation, leaveConversation, isOnline } from '../realtime.js';
 
@@ -161,13 +162,13 @@ router.post('/conversations/:id/messages', sendLimit, upload.array('files', 5), 
     [{ insertId: id }] = await conn.query("INSERT INTO messages (conversation_id, sender_id, body) VALUES (?,?,?)", [cid(req), req.user.id, body || null]);
     for (const f of files) {
       const name = `${randomBytes(16).toString('hex')}.${TYPES[f.mimetype]}`;
-      await rename(f.path, CHAT_DIR + name); stored.push(CHAT_DIR + name);
+      await rename(f.path, CHAT_DIR + name); stored.push(CHAT_DIR + name); await keep(`chat/${name}`, CHAT_DIR + name, f.mimetype);
       await conn.query('INSERT INTO attachments (message_id, original_name, stored_path, mime, size) VALUES (?,?,?,?,?)', [id, Buffer.from(f.originalname, 'latin1').toString('utf8').slice(0, 200), `chat/${name}`, f.mimetype, f.size]);
     }
     await conn.query('UPDATE conversations SET last_message_at = NOW() WHERE id = ?', [cid(req)]);
     await conn.query('UPDATE conversation_members SET last_read_message_id = ? WHERE conversation_id = ? AND user_id = ?', [id, cid(req), req.user.id]); // my own message is read by me
     await conn.commit();
-  } catch (e) { await conn.rollback(); await Promise.all(stored.map((s) => unlink(s).catch(() => {}))); await cleanup(); throw e; } finally { conn.release(); }
+  } catch (e) { await conn.rollback(); await Promise.all(stored.map((s) => Promise.all([unlink(s).catch(() => {}), forget(`chat/${s.split('/').pop()}`)]))); await cleanup(); throw e; } finally { conn.release(); }
   const msg = await broadcastNew(id);
   // one persistent notification per conversation until it is read, so a busy chat doesn't flood the bell
   const [others] = await pool.query('SELECT user_id FROM conversation_members WHERE conversation_id = ? AND user_id <> ?', [cid(req), req.user.id]);
@@ -261,5 +262,7 @@ router.get('/attachments/:id', wrap(async (req, res) => {
   if (!a || a.deleted_at || !(await membership(a.conversation_id, req.user.id))) return res.status(404).json({ error: 'not_found' });
   res.type(a.mime).set('Cache-Control', 'private, max-age=3600');
   if (!a.mime.startsWith('image/')) res.attachment(a.original_name);
-  res.sendFile(UPLOAD_DIR + a.stored_path);
+  const f = await load(a.stored_path, UPLOAD_DIR + a.stored_path);
+  if (!f) return res.status(404).json({ error: 'not_found' });
+  res.send(f.data);
 }));

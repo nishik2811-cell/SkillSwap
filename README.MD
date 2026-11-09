@@ -1,84 +1,95 @@
-
 # SkillSwap
 
-A peer-to-peer skill exchange platform. Users can teach what they know and learn
-what they want — and choose *how* value is exchanged, not just *what*.
+A peer-to-peer skill exchange platform. Everyone is both a **Mentor** (what they can teach) and a **Learner** (what they want to learn), and chooses how value moves: free, paid, or a straight swap. Find people with a ranked **Best Match** list, connect, chat, book a **Learning Session**, pay, and meet in a built-in **Meeting Room** with screen sharing.
 
-Currently a single-file front-end prototype (`index_1.html`) with mock data and
-client-side matching logic. No backend yet.
+Express + PostgreSQL on the server, React + Vite on the web. Free to host (Vercel + Render + Neon): see [DEPLOY.md](DEPLOY.md).
 
-## Concept
+## What's in it
 
-Every user picks one of three exchange preferences:
-
-| Type | Meaning |
+| Area | What it does |
 |---|---|
-| 💰 **Get Paid** | Wants to be paid for teaching |
-| 💵 **Willing to Pay** | Wants to pay to learn |
-| 🤝 **Skill Swap Only** | No money — pure skill-for-skill barter |
+| Accounts | Register, email verification, log in by email or user ID, password reset, onboarding in four steps, public profile at `/u/<id>` |
+| Discover | Best Match ranking by default (skill fit, level, price, time-zone availability, language, teaching style, rating, profile completeness). Filters and other sorts. Weights are editable by an admin |
+| Connections | Requests, accept/reject, block, report. Live notifications |
+| Chat | Direct and group chats, read receipts, typing, presence, attachments |
+| Sessions | One-on-one and group Learning Sessions, capacity enforced under a row lock, approval or instant booking, cancel and reschedule, reminders, two-way reviews that feed ratings |
+| Payments | Razorpay checkout, signature-verified webhooks, refund policy, receipts, mentor earnings and payout requests |
+| Meeting Rooms | Video, audio, screen share, waiting room, host and co-host controls, hand raise, in-room chat (LiveKit) |
+| Admin | Overview and charts, people, reports, payments and refunds, disputes, payouts, skills, platform settings and ranking weights, audit log |
 
-Matching respects this: a "Get Paid" user only matches with a "Willing to Pay"
-user, and "Skill Swap Only" users only match each other. Within a compatible
-pair, matches are ranked by:
+The landing page is a WebGL ray-traced vinyl record: scrolling flies a camera down into a groove, pulls back and flips to Side B. It falls back to a CSS record when WebGL2 is unavailable.
 
-- Two-way skill fit (they teach what you want, ideally you teach what they want)
-- Availability overlap (Mornings / Afternoons / Evenings / Weekends)
-- Budget overlap (for money/pay pairs)
-- Shared interests
-- Contact-method compatibility (Chat / Video / Either)
-- Teacher rating
+## Run it locally
 
-Each candidate gets a 0–100% fit score plus human-readable reason tags
-(e.g. "Two-way skill match", "Budget fits", "Evenings overlap").
-
-## Pages
-
-- **Home** — pitch + entry points
-- **Dashboard** — quick overview + top match preview
-- **Explore** — searchable/filterable directory of all users, filter by exchange type
-- **Profile** — set what you teach/want, your exchange preference, budget,
-  availability, and contact method
-- **Matches** — full ranked match list with scores and reasons
-- **Sessions** — mock upcoming/completed session log
-
-## Running it
-
-It's a static file — no build step, no server required.
+You need Node 22+, PostgreSQL 14+ (with the `citext` extension, which ships with PostgreSQL), and for video rooms a LiveKit server.
 
 ```bash
-# open directly
-xdg-open index_1.html   # or just double-click it
-
-# or serve it (useful for testing)
-python3 -m http.server 8934
-# then visit http://localhost:8934/index_1.html
+npm install
+cp .env.example .env          # then set DATABASE_URL and JWT_SECRET (see below)
+npm run migrate               # creates the tables and the skill catalogue
+npm run seed                  # optional: 10 demo people and 6 sessions
+npm run dev                   # API on :4000, web on :5173
 ```
 
-## Code structure (`index_1.html`)
+Open http://localhost:5173. With no SMTP configured, emails (verification, password reset) are printed in the API console instead of being sent.
 
-Everything lives in one file: markup, styles, and a `<script>` block containing:
+Your first admin: register, verify, then `npm run make-admin -w server -- <your-id>`. An **Admin** link appears in the top bar.
 
-- `currentUser` / `USERS` — mock data. `currentUser` is the logged-in user
-  whose preferences drive matching; `USERS` is the directory of everyone else.
-- `scoreMatch(user, candidate)` — the matching algorithm. Returns `null` if
-  the pair isn't exchange-compatible or shares no relevant skill, otherwise a
-  score + reasons.
-- `getRankedMatches(user, pool)` — scores and sorts a pool of candidates.
-- `renderMatches()`, `renderExplore()`, `renderDashboardMatch()` — re-render
-  the relevant page from current state.
-- `setExchangeType()`, `setMessagePref()`, `toggleAvailability()`,
-  `updateBudget()`, `savePreferences()` — profile preference handlers; all
-  trigger a re-render so Matches/Explore/Dashboard stay in sync.
+### Environment (`.env`)
 
-## Known limitations (prototype stage)
+| Variable | Needed | Notes |
+|---|---|---|
+| `DATABASE_URL` | yes | `postgresql://user:pass@host/db`. On Neon, use the string with `?sslmode=require` |
+| `JWT_SECRET` | yes | 16+ characters. Signs the short-lived live-socket token |
+| `WEB_ORIGIN` | in production | Your site's URL: CORS and links in emails |
+| `SMTP_*`, `MAIL_FROM` | for real email | Any SMTP service (Brevo has a free plan) |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | for paid sessions | Use **test** keys while building |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | for Meeting Rooms | Local: `livekit-server --dev` gives `ws://127.0.0.1:7880`, key `devkey`. Production: LiveKit Cloud |
+| `FILE_STORE=db` | on hosts with an ephemeral disk | Also keeps avatars and attachments in Postgres |
+| `UPLOAD_DIR`, `TRUST_PROXY` | optional | Upload folder, and how many proxies sit in front of the API |
 
-- All data is in-memory — nothing persists across a page reload.
-- Single hardcoded `currentUser`; no real auth or multi-user accounts.
-- No backend, database, messaging, or payment integration yet.
+### Scripts
 
-## Roadmap ideas
+| Command | |
+|---|---|
+| `npm run dev` | API and web together with reload |
+| `npm test` | Server test suite (needs `DATABASE_URL` for a scratch database and a LiveKit server on 7880) |
+| `npm run migrate` | Applies `server/migrations/*.sql` in order, once each |
+| `npm run seed` | Demo data. Re-runnable. Refuses to run with `NODE_ENV=production` |
+| `npm run build -w web` | Production build of the site into `web/dist` |
 
-- Backend + persistent storage for users, skills, and preferences
-- Real messaging between matched users
-- Payment handling for money/pay exchange types
-- Session scheduling tied to real calendars
+## How it is put together
+
+```
+server/src/
+  app.js, index.js     Express app, HTTP + Socket.IO server, background jobs
+  db.js                PostgreSQL pool, transactions with deadlock retry
+  auth/ people/ social/ chat/ sessions/ payments/ meetings/ admin/    one folder per area: routes (+ service)
+  people/ranking.js    Best Match scoring
+  files.js             durable upload store (FILE_STORE=db)
+server/migrations/     SQL schema and seed catalogue
+web/src/pages/         one file per screen; components/ shared UI; Record3D.jsx is the landing record
+```
+
+Design choices worth knowing:
+
+- **Sessions, not JWT.** Login sets an httpOnly cookie that maps to a server-side session, so a suspended person is signed out immediately. A signed token authenticates the live socket across origins.
+- **Money is careful.** Amounts are integers in paise. Booking a seat, taking a payment and refunding all run in transactions with row locks. Razorpay webhooks are idempotent, and a lost refund reply is safe to retry.
+- **Ranking is explainable.** Each Best Match card lists the reasons. Missing data is skipped rather than penalised, and the weights live in the database.
+- **Everything privileged is checked on the server.** The Admin page hides itself from other people, but every `/admin` API call checks the role again.
+
+## Testing
+
+`npm test` runs 54 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access, admin, and durable uploads. Payments have not been run against the real Razorpay gateway, and multi-person video has not been exercised end to end. See [CHECKLIST.md](CHECKLIST.md).
+
+## Known limits
+
+- One API instance: presence and job timers are held in memory.
+- Free hosting sleeps when idle, so reminders only run while the API is awake.
+- Uploads are kept in Postgres when `FILE_STORE=db`, which suits avatars and small attachments, not large media.
+- Payouts to mentors are sent by an admin by hand, then marked paid.
+- Screen sharing is not available in phone browsers.
+
+## History
+
+SkillSwap began as a single-file prototype (`archive/index_1.html`) with mock data and client-side matching. This repository is the full-stack rebuild.

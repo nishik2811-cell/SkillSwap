@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { pool } from './db.js';
 import { router as auth } from './auth/routes.js';
 import { router as people, UPLOAD_DIR } from './people/routes.js';
+import { load } from './files.js';
 import { router as social } from './social/routes.js';
 import { router as chat } from './chat/routes.js';
 import { router as sessions } from './sessions/routes.js';
@@ -41,6 +42,13 @@ app.use('/api/v1', payments);
 app.use('/api/v1', meetings);
 app.use('/api/v1', admin);
 app.use('/uploads', express.static(UPLOAD_DIR, { index: false, dotfiles: 'deny' }));
+app.use('/uploads', async (req, res, next) => {   // not on disk (fresh deploy)? serve the durable copy
+  try {
+    const rel = decodeURIComponent(req.path.slice(1)), f = await load(rel, UPLOAD_DIR + rel);
+    if (!f) return next();
+    res.type(f.mime || 'application/octet-stream').set('Cache-Control', 'public, max-age=86400').send(f.data);
+  } catch (e) { next(e); }
+});
 
 app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
 app.use((err, _req, res, _next) => {

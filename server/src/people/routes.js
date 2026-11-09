@@ -3,6 +3,7 @@ import { z } from 'zod';
 import multer from 'multer';
 import { randomBytes } from 'node:crypto';
 import { mkdir, rename, unlink } from 'node:fs/promises';
+import { keep, forget } from '../files.js';
 import { pool } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { scoreCandidate, sortResults, DEFAULT_WEIGHTS } from './ranking.js';
@@ -127,6 +128,7 @@ router.post('/me/avatar', requireAuth, upload.single('avatar'), wrap(async (req,
   await mkdir(UPLOAD_DIR + 'avatars', { recursive: true });
   const name = `avatars/${randomBytes(12).toString('hex')}.${EXT[req.file.mimetype]}`;
   await rename(req.file.path, UPLOAD_DIR + name);
+  await keep(name, UPLOAD_DIR + name, req.file.mimetype);
   const [[prev]] = await pool.query('SELECT avatar_path FROM users WHERE id = ?', [req.user.id]);
   await pool.query('UPDATE users SET avatar_path = ? WHERE id = ?', [name, req.user.id]);
   await dropAvatarFile(prev?.avatar_path); // the replaced photo is no longer referenced
@@ -137,6 +139,7 @@ router.post('/me/avatar', requireAuth, upload.single('avatar'), wrap(async (req,
 async function dropAvatarFile(path) {
   if (!path || !/^avatars\/[0-9a-f]{24}\.(png|jpg|webp)$/.test(path)) return;
   await unlink(UPLOAD_DIR + path).catch(() => {});
+  await forget(path);
 }
 
 router.delete('/me/avatar', requireAuth, wrap(async (req, res) => {
