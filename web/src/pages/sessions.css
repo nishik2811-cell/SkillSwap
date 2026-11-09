@@ -1,0 +1,18 @@
+.sessions { padding: 36px clamp(16px, 2.4vw, 32px) 64px; max-width: 1320px; }
+.ss-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.ss-kicker { margin: 0 0 8px; font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); } .ss-head h2 { margin: 0; font-size: clamp(2rem, 5.4vw, 4rem); }
+.ss-tabs { margin: 28px 0 8px; }
+.ss-search { margin: 18px 0 16px; min-height: 52px; border: 0; border-bottom: 1px solid var(--ink-2); border-radius: 0; background: transparent; padding: 10px 0; font: 400 1.05rem var(--font-mono); } .ss-search:focus { border-bottom-color: var(--mentor); }
+.ss-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px; } .ss-skills { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+
+.srows { margin-top: 24px; }
+.srow { position: relative; display: grid; grid-template-columns: 150px minmax(0, 1fr) 190px; gap: 24px; align-items: center; padding: 26px 0; border-top: 1px solid var(--line); transition: padding-left .35s var(--ease); }
+.srow:last-child { border-bottom: 1px solid var(--line); } .srow:hover { padding-left: 14px; }
+.srow-date b { display: block; font: 800 clamp(2.4rem, 4vw, 3.6rem)/1 var(--font-display); font-stretch: 125%; letter-spacing: -.03em; } .srow-date span { display: block; margin-top: 6px; font: 400 .7rem/1.5 var(--font-mono); letter-spacing: .1em; color: var(--ink-2); }
+.srow-main h3 { margin: 6px 0 4px; font: 800 clamp(1.15rem, 2vw, 1.7rem)/1.1 var(--font-display); font-stretch: 118%; letter-spacing: -.01em; text-transform: uppercase; }
+.srow-title { text-decoration: none; } .srow-title::after { content: ''; position: absolute; inset: 0; } .srow:hover .srow-title { color: var(--mentor); }
+.srow-meta { margin: 0 0 8px; color: var(--ink-2); font-size: .92rem; } .srow-meta a { position: relative; z-index: 1; color: var(--ink); }
+.srow-chips { display: flex; gap: 6px; flex-wrap: wrap; } .srow-chips:empty { display: none; }
+.srow-price { text-align: right; } .srow-price b { display: block; font: 700 1.15rem var(--font-display); font-stretch: 112%; } .srow-price span { display: block; margin-top: 6px; font: 400 .7rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+@media (max-width: 760px) { .srow { grid-template-columns: 78px minmax(0, 1fr); gap: 6px 16px; padding: 20px 0; } .srow-price { grid-column: 2; text-align: left; display: flex; gap: 12px; align-items: baseline; } .srow-price span { margin: 0; } .srow-date b { font-size: 2.2rem; } }
+@media (prefers-reduced-motion: reduce) { .srow { transition: none; } }

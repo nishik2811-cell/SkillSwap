@@ -1,0 +1,12 @@
+.onb { display: grid; grid-template-columns: minmax(260px, 400px) minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 36px clamp(16px, 2.4vw, 32px) 80px; max-width: 1320px; align-items: start; }
+.onb-cover { position: sticky; top: 84px; padding-right: 8%; } .onb-cover .cd { width: 100%; } .onb-hint { margin: 18px 0 0; font: 400 .7rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.onb-side { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.onb-main { max-width: 820px; min-width: 0; }
+.onb-kicker { margin: 0 0 14px; font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--mentor); }
+.onb-main h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.8rem); } .onb-lede { margin: 0 0 26px; color: var(--ink-2); font-size: 1.1rem; max-width: 34em; }
+.onb .progress { margin-bottom: 22px; } .onb .progress i { height: 3px; border-radius: 0; }
+.onb-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 36px; }
+.set-sec { margin-top: 44px; padding-top: 26px; border-top: 1px solid var(--line); } .set-sec h2 { margin: 0 0 18px; font: 400 .72rem var(--font-mono); font-stretch: 100%; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.cd-note { font: 500 .56rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.skill-row { background: var(--surface); } .skill-row > strong { font: 400 .74rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
+@media (max-width: 860px) { .onb { grid-template-columns: 1fr; } .onb-cover { position: static; max-width: 300px; } }

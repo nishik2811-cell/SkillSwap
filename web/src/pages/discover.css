@@ -1,0 +1,11 @@
+.discover { padding: 36px clamp(16px, 2.4vw, 32px) 64px; max-width: 1320px; }
+.dc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.dc-kicker { margin: 0 0 8px; font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); } .dc-head h2 { margin: 0; font-size: clamp(2.2rem, 6vw, 4.4rem); }
+.dc-search { margin: 26px 0 16px; min-height: 56px; border: 0; border-bottom: 1px solid var(--ink-2); border-radius: 0; background: transparent; padding: 10px 0; font: 400 1.1rem var(--font-mono); } .dc-search:focus { border-bottom-color: var(--mentor); }
+.dc-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .grow { flex: 1; }
+.dc-sort { display: inline-flex; align-items: center; gap: 10px; margin: 0; } .dc-sort span { font: 400 .72rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); } .dc-sort select { width: auto; min-height: 38px; border-radius: 999px; padding: 6px 14px; font: 400 .78rem var(--font-mono); }
+.dc-panel { padding: 16px; border: 1px solid var(--line); border-radius: 12px; margin: 14px 0 0; background: var(--surface); }
+.dc-active { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.discover .skeleton { border-radius: 12px; }
+
+.dc-corner { display: flex; justify-content: space-between; margin-bottom: 18px; font: 400 .66rem var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }

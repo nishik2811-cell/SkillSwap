@@ -1,0 +1,25 @@
+{
+  "name": "skillswap-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=../.env src/index.js",
+    "start": "node --env-file=../.env src/index.js",
+    "migrate": "node --env-file=../.env src/migrate.js",
+    "test": "NODE_ENV=test node --test --env-file=../.env"
+  },
+  "dependencies": {
+    "cookie": "^2.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.0.0",
+    "livekit-server-sdk": "^2.19.2",
+    "multer": "^2.5.0",
+    "mysql2": "^3.11.0",
+    "nodemailer": "^10.4.0",
+    "socket.io": "^4.8.4",
+    "zod": "^3.23.0"
+  }
+}

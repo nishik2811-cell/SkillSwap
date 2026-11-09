@@ -1,0 +1,46 @@
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { pool } from './db.js';
+import { router as auth } from './auth/routes.js';
+import { router as people, UPLOAD_DIR } from './people/routes.js';
+import { router as social } from './social/routes.js';
+import { router as chat } from './chat/routes.js';
+import { router as sessions } from './sessions/routes.js';
+import { router as payments, webhookHandler } from './payments/routes.js';
+import { router as meetings } from './meetings/routes.js';
+import { loadUser } from './auth/middleware.js';
+
+export const app = express();
+app.use(helmet());
+app.use(cors({ origin: process.env.WEB_ORIGIN, credentials: true }));
+// the webhook signature covers the RAW bytes, so this route must be parsed as raw before express.json touches anything
+app.post('/api/v1/webhooks/razorpay', express.raw({ type: '*/*', limit: '256kb' }), webhookHandler);
+app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
+app.use((req, res, next) => loadUser(req, res, next).catch(next));
+
+app.get('/api/v1/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ok: true, db: 'up' });
+  } catch {
+    res.status(503).json({ ok: false, db: 'down' });
+  }
+});
+
+app.use('/api/v1/auth', auth);
+app.use('/api/v1', people);
+app.use('/api/v1', social);
+app.use('/api/v1', chat);
+app.use('/api/v1', sessions);
+app.use('/api/v1', payments);
+app.use('/api/v1', meetings);
+app.use('/uploads', express.static(UPLOAD_DIR, { index: false, dotfiles: 'deny' }));
+
+app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: 'internal_error' });
+});

@@ -1,0 +1,13 @@
+.profile { display: grid; grid-template-columns: minmax(260px, 420px) minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 36px clamp(16px, 2.4vw, 32px) 80px; max-width: 1320px; align-items: start; }
+.pf-cover { position: sticky; top: 84px; padding-right: 8%; } .pf-cover .cd { width: 100%; } .pf-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pf-kicker { margin: 0 0 10px; font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.pf-notes h1 { margin: 0; font-size: clamp(2.4rem, 6vw, 5rem); overflow-wrap: anywhere; } .pf-handle { margin: 10px 0 0; font: 400 .8rem var(--font-mono); letter-spacing: .08em; color: var(--ink-2); }
+.pf-bio { margin: 22px 0 0; font-size: 1.1rem; line-height: 1.6; max-width: 40em; }
+.pf-notes section { margin-top: 44px; } .pf-h { margin: 0 0 14px; font: 400 .72rem var(--font-mono); font-stretch: 100%; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.pf-tracks { list-style: none; margin: 0; padding: 0; } .pf-tracks li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 16px; align-items: baseline; padding: 20px 0; border-top: 1px solid var(--line); } .pf-tracks li:last-child { border-bottom: 1px solid var(--line); }
+.pf-n { font: 400 .72rem var(--font-mono); color: var(--mentor); } .pf-tracks b { display: block; font: 800 clamp(1.2rem, 2.4vw, 1.9rem)/1.05 var(--font-display); font-stretch: 125%; text-transform: uppercase; } .pf-tracks small { display: block; margin-top: 6px; font: 400 .72rem var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.pf-tracks em { font: 700 1.05rem var(--font-display); font-style: normal; font-stretch: 112%; text-align: right; }
+.pf-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.pf-credits { display: grid; grid-template-columns: 120px 1fr; gap: 10px 20px; margin: 0; } .pf-credits dt { font: 400 .72rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); padding-top: 3px; } .pf-credits dd { margin: 0; }
+.pf-safety { border-top: 1px solid var(--line); padding-top: 20px; }
+@media (max-width: 860px) { .profile { grid-template-columns: 1fr; } .pf-cover { position: static; max-width: 380px; } .pf-tracks li { grid-template-columns: 34px 1fr; } .pf-tracks em { grid-column: 2; text-align: left; } }

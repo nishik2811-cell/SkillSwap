@@ -1,0 +1,41 @@
+/* CD jewel-case cards. Square, like a front-cover insert: spine on the left, printed details, plastic gloss. */
+.crate { overflow-x: clip; padding-right: 8px; display: grid; gap: 34px 26px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-top: 28px; }
+.cd { position: relative; aspect-ratio: 1; perspective: 1400px; --ink-on: #15131a; }
+.cd.dim { opacity: .75; }
+.cd-disc { position: absolute; top: 5%; bottom: 5%; right: 0; aspect-ratio: 1; border-radius: 50%; z-index: 0; transform: translateX(14%); transition: transform .6s var(--ease);
+  background: radial-gradient(circle, #0c0b0f 0 7%, #d7d9e2 7% 9%, transparent 9%), conic-gradient(from 20deg, #c9ccd8, #f4f5fa, #aeb2c4, #eef0f7, #bfc3d4, #f4f5fa, #c9ccd8); box-shadow: 0 0 0 1px #00000044, 0 8px 18px #0006; }
+.cd:hover .cd-disc, .cd:focus-within .cd-disc { transform: translateX(34%) rotate(50deg); }
+.cd-case { position: relative; z-index: 1; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .7s var(--ease); }
+.cd.flipped .cd-case { transform: rotateY(180deg); }
+.cd.flipped .cd-disc { transform: translateX(14%); }
+.cd-face { position: absolute; inset: 0; display: flex; flex-direction: column; border-radius: 4px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 1px 0 #ffffff33 inset, 0 0 0 1px #00000055, 0 14px 30px #0007; }
+.cd-face::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgba(255,255,255,.28), transparent 34%, transparent 70%, rgba(255,255,255,.1)); }
+.cd-front { flex-direction: row; background: var(--cover); color: var(--ink-on); }
+.cd-spine { width: 22px; flex: none; background: #0c0b0f; color: #ecebe4; display: grid; place-items: center; box-shadow: inset -1px 0 0 #ffffff22; }
+.cd-spine span { writing-mode: vertical-rl; transform: rotate(180deg); font: 400 .56rem var(--font-mono); letter-spacing: .16em; text-transform: uppercase; white-space: nowrap; }
+.cd-art { position: relative; flex: 1; display: flex; flex-direction: column; padding: 12px 14px 12px; min-width: 0; overflow: hidden; }
+.cd-top { display: flex; justify-content: space-between; font: 400 .58rem var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.cd-initial { position: absolute; left: -6%; top: 6%; font: 900 clamp(10rem, 30vw, 15rem)/.8 var(--font-display); font-stretch: 125%; opacity: .2; pointer-events: none; user-select: none; }
+.cd-sticker { position: absolute; top: 34px; right: 12px; width: 70px; aspect-ratio: 1; border-radius: 50%; background: #0c0b0f; color: #ecebe4; display: grid; place-content: center; text-align: center; transform: rotate(12deg); box-shadow: 0 2px 0 #00000055; }
+.cd-sticker b { font: 800 1.3rem/1 var(--font-display); font-stretch: 125%; } .cd-sticker span { font: 400 .5rem var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.cd-title { margin-top: auto; position: relative; }
+.cd-title h3 { margin: 0; font: 900 clamp(1.15rem, 1.9vw, 1.55rem)/.95 var(--font-display); font-stretch: 125%; text-transform: uppercase; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.cd-title h3 a { text-decoration: none; color: inherit; } .cd-title h3 a::after { content: ''; position: absolute; inset: -240px -14px -4px -14px; z-index: 0; }
+.cd-title p { margin: 8px 0 0; font: 500 .62rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.cd-strip { position: relative; z-index: 2; display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 0 0; margin-top: 10px; border-top: 1.5px solid currentColor; }
+.cd-flip { white-space: nowrap; background: none; border: 0; padding: 4px 0; font: 500 .62rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.cd-front .btn { min-height: 30px; font-size: .6rem; padding: 0 14px; background: #0c0b0f; color: #ecebe4; border-color: #0c0b0f; } .cd-front .btn.ghost { background: transparent; color: #15131a; border-color: #15131a; }
+.cd-back { background: #0c0b0f; color: #ecebe4; padding: 12px 14px 10px; transform: rotateY(180deg); }
+.cd-back .cd-strip { margin-top: auto; border-color: #ecebe455; } .cd-back .btn.ghost { color: #ecebe4; border-color: #ecebe4; }
+.cd-back ol { list-style: none; margin: 8px 0 6px; padding: 0; font-size: .74rem; line-height: 1.3; color: #d7d4cc; } .cd-back li { display: flex; gap: 10px; padding: 1px 0; border-bottom: 1px solid #ecebe41f; } .cd-back li span { font: 400 .62rem var(--font-mono); color: var(--mentor); padding-top: 3px; }
+.cd-back dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 2px 0 0; font-size: .7rem; line-height: 1.3; } .cd-back dt { font: 400 .58rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: #8f8b98; padding-top: 2px; } .cd-back dd { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .cd-disc, .cd-case { transition: none; } }
+
+/* Photo covers: the uploaded picture is the cover art; a dark fade keeps the printed details readable. */
+.cd-front.has-photo { background: #0c0b0f var(--photo) center / cover no-repeat; color: #fff; }
+.cd-front.has-photo .cd-art::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,.45), transparent 32%, transparent 42%, rgba(0,0,0,.82)); }
+.cd-front.has-photo .cd-initial { display: none; }
+.cd-front.has-photo .cd-top, .cd-front.has-photo .cd-title, .cd-front.has-photo .cd-strip { position: relative; z-index: 1; } .cd-front.has-photo .cd-sticker { z-index: 1; }
+.cd-front.has-photo .cd-strip { border-color: rgba(255,255,255,.7); }
+.cd-front.has-photo .cd-flip { color: #fff; }
+.cd-front.has-photo .btn.ghost { color: #fff; border-color: #fff; }

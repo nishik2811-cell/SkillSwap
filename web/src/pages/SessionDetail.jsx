@@ -1,0 +1,91 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { api, errorText } from '../api.js';
+import { Alert, Avatar } from '../components/UI.jsx';
+import { useSocial } from '../social.jsx';
+import RoomButton from '../components/RoomButton.jsx';
+import PayButton from '../components/PayButton.jsx';
+import './sessiondetail.css';
+import { when, priceOf, STATUS_TEXT, Stars } from '../components/SessionBits.jsx';
+
+const ERR = { full: 'This session is full.', already_booked: 'You already have a booking.', previously_declined: 'The mentor declined your earlier request.', not_bookable: 'This session is no longer open for booking.',
+  must_be_in_future: 'Pick a time at least 5 minutes from now.', overlaps_another_session: 'You have another session at that time.', capacity_below_bookings: 'Fewer seats than people already booked.', not_started_yet: "You can complete a session once it has started.", not_reviewable: "Reviews open after the session is completed." };
+const msg = (x) => ERR[x.message] || errorText(x);
+
+export default function SessionDetail() {
+  const { id } = useParams(); const [s, setS] = useState(null); const [err, setErr] = useState(''); const [note, setNote] = useState(''); const [busy, setBusy] = useState(false);
+  const load = useCallback(() => api(`/sessions/${id}`).then(setS).catch((x) => setErr(x.status === 404 ? 'Session not found.' : msg(x))), [id]);
+  useEffect(() => { load(); }, [load]);
+  const { socket } = useSocial();
+  useEffect(() => { // a booking, cancellation or reschedule for this session refreshes the page live
+    if (!socket) return; const h = (n) => { if (n.link === `/sessions/${id}`) load(); };
+    socket.on('notification', h); return () => socket.off('notification', h);
+  }, [socket, id, load]);
+  const act = async (fn) => { setErr(''); setBusy(true); try { await fn(); await load(); } catch (x) { setErr(msg(x)); } finally { setBusy(false); } };
+  if (!s) return <div className="wrap" style={{ padding: 32 }}><Alert>{err}</Alert>{!err && <div className="skeleton" />}</div>;
+  const started = new Date(s.startsAt) <= new Date(), open = s.status === 'scheduled' && !started, b = s.myBooking;
+  return <div className="wrap stack sdetail">
+    <header className="sd-head">
+      <div className="sd-date"><b>{String(new Date(s.startsAt).getDate()).padStart(2, '0')}</b><span>{new Date(s.startsAt).toLocaleDateString([], { month: 'short', weekday: 'short' }).toUpperCase()}<br />{new Date(s.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
+      <div className="sd-main">
+        <p className="sd-kicker">{s.kind === 'group' ? `Group · ${s.capacity} seats` : 'One-on-one'} · {s.skill} · {s.durationMin} min{s.status !== 'scheduled' ? ` · ${s.status}` : ''}</p>
+        <h1>{s.title}</h1>
+        <div className="row sd-mentor"><Avatar user={s.mentor} /><div>with <Link to={`/u/${s.mentor.username}`}><b>{s.mentor.fullName}</b></Link>{s.mentor.rating.count > 0 && <div className="hint">★ {s.mentor.rating.avg.toFixed(1)} · {s.mentor.rating.count} reviews</div>}</div></div>
+      </div>
+      <div className="sd-price"><b>{priceOf(s)}</b>{s.seatsLeft != null && <span>{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left</span>}</div>
+    </header>
+    {s.description && <p style={{ whiteSpace: 'pre-wrap' }}>{s.description}</p>}
+    {s.status === 'cancelled' && <Alert>This session was cancelled{s.cancelReason ? `: ${s.cancelReason}` : '.'}</Alert>}
+    <Alert>{err}</Alert>
+
+    {!s.isMentor && <section className="card stack">
+      {b && <div><b>Your booking:</b> {STATUS_TEXT[b.status]}</div>}
+      {(!b || b.status === 'cancelled') && open && s.seatsLeft > 0 && <>
+        <input aria-label="Note to the mentor" placeholder="Note to the mentor (optional)" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
+        <div><button className="btn accent" disabled={busy} onClick={() => act(() => api(`/sessions/${id}/book`, { method: 'POST', body: { note } }))}>{s.autoAccept ? (s.pricing === 'free' ? 'Book your seat' : 'Reserve a seat') : 'Request to join'}</button> <span className="hint">{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left{s.autoAccept ? ' · instant booking' : ' · the mentor approves requests'}</span></div></>}
+      {(!b || b.status === 'cancelled') && open && s.seatsLeft === 0 && <div className="muted">This session is full.</div>}
+      {b?.status === 'confirmed' && s.status === 'scheduled' && <RoomButton sessionId={s.id} />}
+      {b?.status === 'awaiting_payment' && open && <PayButton bookingId={b.id} title={s.title} amountPaise={s.pricePaise} onPaid={load} />}
+      {b?.status === 'confirmed' && s.pricing === 'paid' && <div className="hint">Paid. <Link to="/wallet">See receipt</Link> · Full refund if you cancel at least 24 hours before the start.</div>}
+      {b && ['requested', 'awaiting_payment', 'confirmed'].includes(b.status) && open && <div><button className="btn small ghost" disabled={busy} onClick={() => window.confirm(b.status === 'confirmed' && s.pricing === 'paid' ? 'Cancel your booking? You get a full refund only if the session starts in 24 hours or more.' : 'Cancel your booking?') && act(() => api(`/bookings/${b.id}/cancel`, { method: 'POST', body: {} }))}>Cancel booking</button></div>}
+      {b?.status === 'completed' && !b.reviewed && <ReviewForm bookingId={b.id} who={s.mentor.fullName} onDone={load} />}
+      {b?.reviewed && <div className="hint ok">Thanks for your review.</div>}
+    </section>}
+
+    {s.isMentor && <>
+      <section className="card stack"><h3>Bookings · {s.capacity - s.seatsLeft}/{s.capacity} seats taken</h3>
+        {s.bookings.length === 0 && <p className="muted">No one has booked yet.</p>}
+        {s.bookings.map((x) => <div key={x.id} className="stack" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <div className="row"><Avatar user={x.learner} /><div><Link to={`/u/${x.learner.username}`}><b>{x.learner.fullName}</b></Link><div className="hint">{STATUS_TEXT[x.status]}{x.note ? ` · “${x.note}”` : ''}</div></div></div>
+            <div className="row">
+              {x.status === 'requested' && open && <><button className="btn small accent" disabled={busy} onClick={() => act(() => api(`/bookings/${x.id}/accept`, { method: 'POST', body: {} }))}>Accept</button><button className="btn small ghost" disabled={busy} onClick={() => act(() => api(`/bookings/${x.id}/reject`, { method: 'POST', body: {} }))}>Decline</button></>}
+              {['awaiting_payment', 'confirmed'].includes(x.status) && open && <button className="btn small ghost" disabled={busy} onClick={() => window.confirm(`Remove ${x.learner.fullName}?`) && act(() => api(`/bookings/${x.id}/cancel`, { method: 'POST', body: {} }))}>Remove</button>}
+            </div></div>
+          {x.status === 'completed' && !x.reviewed && <ReviewForm bookingId={x.id} who={x.learner.fullName} onDone={load} />}
+        </div>)}
+      </section>
+      {s.status === 'scheduled' && <section className="card stack"><h3>Manage</h3>
+        <RoomButton sessionId={s.id} host />
+        <Reschedule s={s} act={act} busy={busy} />
+        <div className="row">
+          <button className="btn" disabled={busy || !started} title={started ? '' : 'Available once the session has started'} onClick={() => window.confirm('Mark this session as completed?') && act(() => api(`/sessions/${id}/complete`, { method: 'POST', body: {} }))}>Mark as completed</button>
+          <button className="btn ghost" disabled={busy} onClick={() => { const reason = window.prompt('Reason for cancelling (shared with learners):', ''); if (reason !== null) act(() => api(`/sessions/${id}/cancel`, { method: 'POST', body: { reason } })); }}>Cancel session</button>
+        </div>{!started && <p className="hint">You can mark it completed once it has started.</p>}</section>}
+    </>}
+  </div>;
+}
+
+function Reschedule({ s, act, busy }) {
+  const [v, setV] = useState('');
+  return <div className="row"><label htmlFor="rs" style={{ margin: 0 }}>Reschedule to</label><input id="rs" type="datetime-local" value={v} onChange={(e) => setV(e.target.value)} style={{ maxWidth: 240 }} />
+    <button className="btn small" disabled={busy || !v} onClick={() => act(() => api(`/sessions/${s.id}`, { method: 'PATCH', body: { startsAt: new Date(v).toISOString() } }))}>Move</button><span className="hint">Booked learners are notified.</span></div>;
+}
+
+function ReviewForm({ bookingId, who, onDone }) {
+  const [rating, setRating] = useState(0); const [comment, setComment] = useState(''); const [err, setErr] = useState('');
+  async function submit(e) { e.preventDefault(); setErr(''); try { await api(`/bookings/${bookingId}/review`, { method: 'POST', body: { rating, comment: comment || undefined } }); onDone(); } catch (x) { setErr(msg(x)); } }
+  return <form className="stack" onSubmit={submit}><b>Review {who}</b><Alert>{err}</Alert><Stars value={rating} onChange={setRating} />
+    <textarea aria-label="Review comment" rows={2} maxLength={1000} placeholder="How did it go? (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
+    <div><button className="btn small" disabled={!rating}>Submit review</button></div></form>;
+}
