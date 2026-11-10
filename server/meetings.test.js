@@ -106,3 +106,20 @@ test('a session room is gated by a CONFIRMED booking and by time; the client can
   await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 HOUR) WHERE id = ?', [sid]);
   assert.equal((await call(`/rooms/${code}/join`, 'POST', {}, paid)).body.error, 'not_open_yet');
 });
+
+test('a host invites only their connections; the room can carry a start time', async () => {
+  const [h, f, s] = [await makeUser('i1'), await makeUser('i2'), await makeUser('i3')];
+  const id = async (u) => (await pool.query('SELECT id FROM users WHERE username = ?', [u.username]))[0][0].id;
+  await pool.query("INSERT INTO connections (requester_id, addressee_id, status) VALUES (?,?,'accepted')", [await id(h), await id(f)]);
+  const startsAt = new Date(Date.now() + 3600e3).toISOString();
+  const r = await call('/rooms', 'POST', { title: 'Study group', startsAt }, h); assert.equal(r.status, 201);
+  assert.equal((await call('/rooms', 'GET', undefined, h)).body.rooms.find((x) => x.code === r.body.code).scheduledAt, startsAt);
+  assert.equal((await call('/rooms', 'POST', { startsAt: 'tomorrow' }, h)).status, 400);
+  const inv = await call(`/rooms/${r.body.code}/invite`, 'POST', { usernames: [f.username, s.username] }, h);
+  assert.equal(inv.body.sent, 1); // the stranger is skipped
+  const note = (await pool.query("SELECT link FROM notifications WHERE user_id = ? AND type = 'meeting_invite'", [await id(f)]))[0];
+  assert.equal(note.length, 1); assert.equal(note[0].link, `/room/${r.body.code}`);
+  assert.equal((await pool.query("SELECT 1 FROM notifications WHERE user_id = ? AND type = 'meeting_invite'", [await id(s)]))[0].length, 0);
+  assert.equal((await call(`/rooms/${r.body.code}/invite`, 'POST', { usernames: [h.username] }, f)).body.error, 'not_allowed'); // only host or co-host
+  assert.equal((await call(`/rooms/${r.body.code}/invite`, 'POST', { usernames: [] }, h)).status, 400);
+});

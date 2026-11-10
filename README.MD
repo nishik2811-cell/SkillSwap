@@ -14,7 +14,7 @@ Express + PostgreSQL on the server, React + Vite on the web. Free to host (Verce
 | Chat | Direct and group chats, read receipts, typing, presence, attachments, edit your own messages, emoji reactions, search within a chat |
 | Sessions | One-on-one and group Learning Sessions, capacity enforced under a row lock, approval or instant booking, weekly repeat (up to 12 weeks), add-to-calendar file, cancel and reschedule, reminders, two-way reviews that feed ratings |
 | Payments | Razorpay checkout, signature-verified webhooks, refund policy, receipts, mentor earnings and payout requests |
-| Meeting Rooms | Video, audio, screen share, waiting room, host and co-host controls, hand raise, in-room chat (LiveKit) |
+| Meeting Rooms | Video, audio, screen share, waiting room, host and co-host controls, hand raise, in-room chat (LiveKit). Invite your connections from inside the room, or schedule a meeting from any chat |
 | Admin | Overview and charts, people, reports, payments and refunds, disputes, payouts, skills, platform settings and ranking weights, audit log |
 
 The landing page is a WebGL ray-traced vinyl record: scrolling flies a camera down into a groove, pulls back and flips to Side B. It falls back to a CSS record when WebGL2 is unavailable.
@@ -80,7 +80,7 @@ Design choices worth knowing:
 
 ## Testing
 
-`npm test` runs 57 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access, admin, and durable uploads. Payments have not been run against the real Razorpay gateway, and multi-person video has not been exercised end to end. See [CHECKLIST.md](CHECKLIST.md).
+`npm test` runs 58 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access, admin, and durable uploads. Payments have not been run against the real Razorpay gateway, and multi-person video has not been exercised end to end. See [CHECKLIST.md](CHECKLIST.md).
 
 ## Known limits
 

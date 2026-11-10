@@ -46,4 +46,4 @@ Any PostgreSQL 14+ with the `citext` extension: set `DATABASE_URL`, run `npm run
 
 ## Known limits
 Single API instance (presence and job timers are in memory). Uploads are on disk, mirrored in Postgres when `FILE_STORE=db`. Payouts are marked paid by an admin by hand.
-Deployed on Neon + Render + Vercel. The 57 tests run against a local PostgreSQL 18; a real Razorpay payment, real email delivery and two-person video still need a manual check.
+Deployed on Neon + Render + Vercel. The 58 tests run against a local PostgreSQL 18; a real Razorpay payment, real email delivery and two-person video still need a manual check.

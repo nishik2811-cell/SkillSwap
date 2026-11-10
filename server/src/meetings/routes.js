@@ -17,11 +17,11 @@ const LETTERS = 'abcdefghjkmnpqrstuvwxyz'; // no lookalikes (i, l, o)
 const newCode = () => { const g = (n) => Array.from({ length: n }, () => LETTERS[randomInt(LETTERS.length)]).join(''); return `${g(3)}-${g(4)}-${g(3)}`; };
 const OPEN_BEFORE_MIN = 15, OPEN_AFTER_MIN = 120; // a session's room accepts people from 15 min before the start until 2 h after the end
 
-async function createRoom(conn, { hostId, title, sessionId = null, waitingRoom = true }) {
+async function createRoom(conn, { hostId, title, sessionId = null, waitingRoom = true, startsAt = null }) {
   for (let i = 0; i < 5; i++) {
     await conn.query('SAVEPOINT room_try'); // in PostgreSQL a failed INSERT aborts the whole transaction unless it is rolled back to a savepoint
     try {
-      const [r] = await conn.query('INSERT INTO meeting_rooms (code, session_id, host_id, title, waiting_room) VALUES (?,?,?,?,?)', [newCode(), sessionId, hostId, title, waitingRoom]);
+      const [r] = await conn.query('INSERT INTO meeting_rooms (code, session_id, host_id, title, waiting_room, scheduled_at) VALUES (?,?,?,?,?,?)', [newCode(), sessionId, hostId, title, waitingRoom, startsAt]);
       await conn.query("INSERT INTO meeting_participants (room_id, user_id, role, status) VALUES (?,?, 'host', 'left')", [r.insertId, hostId]);
       return r.insertId;
     } catch (e) {
@@ -34,7 +34,7 @@ async function createRoom(conn, { hostId, title, sessionId = null, waitingRoom =
 
 // ---- rooms ----
 router.post('/rooms', wrap(async (req, res) => {
-  const p = z.object({ title: z.string().trim().min(1).max(120).default('Meeting'), waitingRoom: z.boolean().default(true) }).safeParse(req.body || {}); if (!p.success) return bad(res, p.error);
+  const p = z.object({ title: z.string().trim().min(1).max(120).default('Meeting'), waitingRoom: z.boolean().default(true), startsAt: z.string().datetime({ offset: true }).optional() }).safeParse(req.body || {}); if (!p.success) return bad(res, p.error);
   const id = await inTx((c) => createRoom(c, { hostId: req.user.id, ...p.data }));
   const [[r]] = await pool.query('SELECT code FROM meeting_rooms WHERE id = ?', [id]);
   res.status(201).json({ code: r.code, link: `${process.env.WEB_ORIGIN}/room/${r.code}` });
@@ -165,7 +165,22 @@ router.post('/rooms/:code/end', wrap(async (req, res) => {
 
 // ---- history ----
 router.get('/rooms', wrap(async (req, res) => {
-  const [rows] = await pool.query(`SELECT r.code, r.title, r.status, r.created_at, r.ended_at, r.session_id, p.role FROM meeting_participants p JOIN meeting_rooms r ON r.id = p.room_id
+  const [rows] = await pool.query(`SELECT r.code, r.title, r.status, r.created_at, r.ended_at, r.scheduled_at, r.session_id, p.role FROM meeting_participants p JOIN meeting_rooms r ON r.id = p.room_id
     WHERE p.user_id = ? AND (p.first_joined_at IS NOT NULL OR p.role = 'host') ORDER BY r.created_at DESC LIMIT 50`, [req.user.id]);
-  res.json({ rooms: rows.map((r) => ({ code: r.code, title: r.title, status: r.status, role: r.role, sessionId: r.session_id, createdAt: new Date(r.created_at).toISOString(), endedAt: r.ended_at && new Date(r.ended_at).toISOString() })) });
+  res.json({ rooms: rows.map((r) => ({ code: r.code, title: r.title, status: r.status, role: r.role, sessionId: r.session_id, scheduledAt: r.scheduled_at && new Date(r.scheduled_at).toISOString(), createdAt: new Date(r.created_at).toISOString(), endedAt: r.ended_at && new Date(r.ended_at).toISOString() })) });
+}));
+
+// The host or a co-host invites people they are connected with: each gets a notification that opens the room.
+router.post('/rooms/:code/invite', wrap(async (req, res) => {
+  const p = z.object({ usernames: z.array(z.string().trim().toLowerCase().min(1).max(40)).min(1).max(20) }).safeParse(req.body || {}); if (!p.success) return bad(res, p.error);
+  const room = await roomByCode(req.params.code); if (!room) throw err(404, 'not_found');
+  if (room.status !== 'open') throw err(409, 'meeting_ended');
+  if (!isStaff(await myPart(room.id, req.user.id))) throw err(403, 'not_allowed');
+  const [people] = await pool.query(
+    `SELECT u.id FROM users u JOIN connections c ON c.user_lo = LEAST(u.id, ?) AND c.user_hi = GREATEST(u.id, ?) AND c.status = 'accepted'
+     WHERE u.username IN (?) AND u.status = 'active' AND u.id <> ?
+       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = u.id AND b.blocked_id = ?) OR (b.blocker_id = ? AND b.blocked_id = u.id))`,
+    [req.user.id, req.user.id, p.data.usernames, req.user.id, req.user.id, req.user.id]);
+  for (const u of people) await notify(u.id, { type: 'meeting_invite', title: `${req.user.full_name} invited you to "${room.title}"`.slice(0, 160), body: 'Tap to join the meeting.', link: `/room/${room.code}` });
+  res.json({ sent: people.length });
 }));

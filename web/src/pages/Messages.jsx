@@ -6,6 +6,7 @@ import { useSocial } from '../social.jsx';
 import { Alert, Avatar } from '../components/UI.jsx';
 import './chat.css';
 
+const linkify = (t) => t.split(/(https?:\/\/\S+)/).map((p, i) => (i % 2 ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{p}</a> : p));
 const hm = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const day = (d) => new Date(d).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
 const size = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -82,7 +83,7 @@ function Thread({ id, onGone, onChanged }) {
   const { user } = useAuth(); const { socket } = useSocial();
   const [info, setInfo] = useState(null); const [msgs, setMsgs] = useState([]); const [hasMore, setHasMore] = useState(false); const [err, setErr] = useState('');
   const [text, setText] = useState(''); const [files, setFiles] = useState([]); const [busy, setBusy] = useState(false); const [typers, setTypers] = useState({}); const [showInfo, setShowInfo] = useState(false);
-  const [edit, setEdit] = useState(null); const [pick, setPick] = useState(0); const [q, setQ] = useState(null); const [found, setFound] = useState(null);   // edit: {id, text}; pick: message with the emoji row open; q: null = search closed
+  const [sched, setSched] = useState(null); const [edit, setEdit] = useState(null); const [pick, setPick] = useState(0); const [q, setQ] = useState(null); const [found, setFound] = useState(null);   // edit: {id, text}; pick: message with the emoji row open; q: null = search closed
   const bottom = useRef(); const box = useRef(); const lastTyping = useRef(0); const stick = useRef(true);
 
   const loadInfo = useCallback(() => api(`/conversations/${id}`).then(setInfo), [id]);
@@ -138,6 +139,16 @@ function Thread({ id, onGone, onChanged }) {
     finally { setBusy(false); }
   }
   const fail = (x) => setErr(errorText(x));
+  async function schedule(e) { // a room with a start time, then a normal chat message carrying the time and link
+    e.preventDefault(); if (busy || !sched.when) return; setBusy(true); setErr('');
+    try {
+      const title = sched.title.trim() || 'Meeting', at = new Date(sched.when);
+      const r = await api('/rooms', { method: 'POST', body: { title, waitingRoom: false, startsAt: at.toISOString() } });
+      const form = new FormData(); form.append('body', `📅 ${title}\nWhen: ${at.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}\nJoin: ${r.link}`);
+      const m = await api(`/conversations/${id}/messages`, { method: 'POST', form });
+      stick.current = true; setMsgs((l) => (l.some((x) => x.id === m.id) ? l : [...l, m])); setSched(null); onChanged();
+    } catch (x) { setErr(x.message === 'cannot_message' ? "You can't message this person right now." : errorText(x)); } finally { setBusy(false); }
+  }
   const saveEdit = (e) => { e.preventDefault(); if (!edit.text.trim()) return; api(`/conversations/${id}/messages/${edit.id}`, { method: 'PATCH', body: { body: edit.text } }).then(() => setEdit(null)).catch(fail); };
   const react = (m, emoji) => { setPick(0); api(`/conversations/${id}/messages/${m.id}/reactions`, { method: 'POST', body: { emoji } }).catch(fail); };
   const search = (e) => { e.preventDefault(); if (!q.trim()) return setFound(null); api(`/conversations/${id}/messages?limit=100&q=${encodeURIComponent(q.trim())}`).then((r) => setFound(r.messages)).catch(fail); };
@@ -184,7 +195,7 @@ function Thread({ id, onGone, onChanged }) {
                 {edit?.id === m.id
                   ? <form className="stack" onSubmit={saveEdit}><textarea autoFocus aria-label="Edit message" rows={2} maxLength={4000} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setEdit(null)} />
                     <div className="row"><button className="btn small accent" disabled={!edit.text.trim()}>Save</button><button type="button" className="btn small ghost" onClick={() => setEdit(null)}>Cancel</button></div></form>
-                  : m.body && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>}
+                  : m.body && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{linkify(m.body)}</div>}
                 {m.attachments.map((a) => a.mime.startsWith('image/')
                   ? <a key={a.id} href={a.url} target="_blank" rel="noreferrer"><img className="att-img" src={a.url} alt={a.name} loading="lazy" /></a>
                   : <a key={a.id} className="att" href={a.url} download>📎 {a.name} <span className="hint">{size(a.size)}</span></a>)}</>}
@@ -203,9 +214,14 @@ function Thread({ id, onGone, onChanged }) {
         <div ref={bottom} />
       </div>
       <Alert>{err}</Alert>
+      {sched && <form className="panel stack" onSubmit={schedule}><b>Schedule a meeting</b>
+        <input aria-label="Meeting title" placeholder="Title (optional)" maxLength={120} value={sched.title} onChange={(e) => setSched({ ...sched, title: e.target.value })} />
+        <input type="datetime-local" aria-label="Meeting date and time" required value={sched.when} onChange={(e) => setSched({ ...sched, when: e.target.value })} />
+        <div className="row"><button className="btn small accent" disabled={busy || !sched.when}>Schedule and share</button><button type="button" className="btn small ghost" onClick={() => setSched(null)}>Cancel</button></div></form>}
       <form className="composer" onSubmit={send}>
         {files.length > 0 && <div className="row">{files.map((f, i) => <span key={i} className="chip static">{f.name} <button type="button" className="linkbtn" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>✕</button></span>)}</div>}
         <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-end' }}>
+          <button type="button" className="btn small ghost" aria-label="Schedule a meeting" aria-pressed={!!sched} onClick={() => setSched(sched ? null : { title: '', when: '' })}>📅</button>
           <label className="btn small ghost" style={{ margin: 0 }} aria-label="Attach files">📎<input type="file" multiple hidden onChange={(e) => setFiles([...files, ...e.target.files].slice(0, 5))} /></label>
           <textarea aria-label="Message" rows={1} maxLength={4000} placeholder="Write a message…" value={text} onChange={(e) => typing(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />

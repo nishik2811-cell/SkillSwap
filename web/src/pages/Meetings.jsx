@@ -21,7 +21,7 @@ export default function Meetings() {
     </div>
     <section><h3>History</h3>{!rooms && <div className="skeleton" />}{rooms?.length === 0 && <p className="muted">No meetings yet. Sessions you teach or attend show up here once you open their room.</p>}
       {rooms?.map((r) => <div key={r.code} className="row" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--line)', padding: '8px 0' }}>
-        <div><b>{r.title}</b> <span className="hint">{r.code} · {r.role} · {new Date(r.createdAt).toLocaleString()}</span></div>
+        <div><b>{r.title}</b> <span className="hint">{r.code} · {r.role} · {r.scheduledAt ? `scheduled ${new Date(r.scheduledAt).toLocaleString()}` : new Date(r.createdAt).toLocaleString()}</span></div>
         {r.status === 'open' ? <Link className="btn small" to={`/room/${r.code}`}>Open</Link> : <span className="chip static">Ended</span>}</div>)}</section>
   </div>;
 }
