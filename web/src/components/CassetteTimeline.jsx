@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../auth.jsx';
 
 const STEPS = [
   ['01', 'Say what you can teach', 'Pick your skills and decide: free, paid, or swap only. You are a Mentor and a Learner at once.'],
@@ -11,7 +13,7 @@ const STEPS = [
 
 /** "The story so far", as a cassette: scroll plays the tape. Pinned for 360vh; the reels turn, the year-style numeral rolls. */
 export default function CassetteTimeline() {
-  const root = useRef(); const [i, setI] = useState(0); const [flip, setFlip] = useState(0); const [still, setStill] = useState(false);
+  const { user } = useAuth(); const root = useRef(); const [i, setI] = useState(0); const [flip, setFlip] = useState(0); const [still, setStill] = useState(false);
   useEffect(() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) { setStill(true); return; }
@@ -32,6 +34,8 @@ export default function CassetteTimeline() {
     <section className={`tape-track ${still ? 'still' : ''}`} ref={root} aria-labelledby="tape-h">
       <div className="tape-pin">
         <h2 id="tape-h" className="sr">How SkillSwap works</h2>
+        <header className="moa-head tape-head"><Link to="/" className="moa-logo">SKILLSWAP</Link>
+          <nav className="moa-mono" aria-label="Account">{user ? <Link to="/dashboard">Dashboard</Link> : <><Link to="/login">Log in</Link><Link to="/register" className="cta solid">Join</Link></>}</nav></header>
         <div className="tape">
           <div className="cassette" aria-hidden="true">
             <div className="c-top"><b>SKILLSWAP</b><span>A · C90</span></div><div className="c-stripe" /><div className="c-sub">HOW A SWAP GOES · 01–06</div>

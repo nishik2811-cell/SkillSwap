@@ -24,7 +24,8 @@
 
 /* cassette timeline */
 .tape-track { height: 420vh; position: relative; background: var(--bg); --q: 0; }
-.tape-pin { position: sticky; top: 0; height: 100dvh; display: grid; grid-template-rows: 1fr auto; }
+.tape-pin { position: sticky; top: 0; height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; }
+.tape-head { padding: 18px clamp(16px, 2.4vw, 32px) 0; } .tape-head nav { display: flex; align-items: center; gap: 16px; } .tape-head .cta { min-height: 40px; padding: 0 18px; }
 .tape { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: clamp(24px, 5vw, 80px); max-width: 1200px; margin: 0 auto; width: 100%; padding: 0 clamp(16px, 2.4vw, 32px); }
 .cassette { position: relative; aspect-ratio: 1.62; border-radius: 16px; padding: 5% 6%; background: linear-gradient(#e9e4d4 0 74%, #1d1d23 74%); box-shadow: 0 0 0 7px #25252b, 0 40px 70px rgba(0, 0, 0, .55); transform: rotate(-4deg) perspective(900px) rotateY(calc(4deg - var(--q) * 8deg)); color: #15141a; }
 .c-top { display: flex; justify-content: space-between; align-items: baseline; font: 800 clamp(1rem, 2.6vw, 1.7rem) var(--display); font-stretch: 125%; } .c-top span { font: 500 .8rem var(--mono); }
@@ -43,7 +44,7 @@
 .tape-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 18px; } .tape-list b { font: 800 1.6rem var(--display); margin-right: 12px; color: var(--accent); }
 .tape-track.still { height: auto; } .tape-track.still .tape-pin { position: relative; height: auto; padding: 72px 0; }
 
-@media (max-width: 760px) { .tape { grid-template-columns: 1fr; gap: 16px; align-content: center; } .cassette { max-width: 340px; margin: 0 auto; } .tape-num { font-size: 4rem; } .wave-copy { top: 50%; } .flip-cap { bottom: 7vh; } }
+@media (max-width: 760px) { .tape { grid-template-columns: 1fr; gap: 16px; align-content: start; padding-top: 4vh; } .cassette { max-width: 340px; margin: 0 auto; } .tape-num { font-size: 4rem; } .wave-copy { top: 50%; } .flip-cap { bottom: 7vh; } }
 @media (prefers-reduced-motion: reduce) { .tape-num, .tape-copy h3, .tape-p { animation: none; } .moa-root .zoom-track .vinyl-stage { transition: none; } .sideb svg { animation: none; } }
 
 /* Grooves as CSS gradients: a ring of fine grooves (period = record width / 330), three wider track gaps, and a faint second period for variation. */

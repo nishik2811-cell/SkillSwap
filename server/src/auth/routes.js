@@ -3,7 +3,7 @@ import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { pool } from '../db.js';
 import { hashPassword, verifyPassword, newToken, sha256, signSocketToken } from './crypto.js';
-import { sendMail } from './mail.js';
+import { sendMail, actionMail } from './mail.js';
 import { COOKIE, requireAuth } from './middleware.js';
 
 export const router = Router();
@@ -20,6 +20,11 @@ const parse = (schema, data, res) => {
   return r.data;
 };
 const webLink = (path, token) => `${process.env.WEB_ORIGIN}${path}?token=${token}`;
+const verifyMail = (name, token) => actionMail({
+  name, heading: 'Confirm your email address',
+  intro: 'Welcome to SkillSwap! Please confirm your email address to activate your account and start learning and teaching. The link works for 48 hours.',
+  button: 'Confirm email', link: webLink('/verify-email', token),
+  note: "If you didn't create a SkillSwap account, you can safely ignore this email." });
 
 async function issueEmailToken(userId, purpose, hours) {
   const token = newToken();
@@ -73,17 +78,16 @@ router.post('/register', wrap(async (req, res) => {
     return res.status(409).json({ error: 'email_taken' });
   }
   const token = await issueEmailToken(id, 'verify_email', 48);
-  await sendMail({ to: d.email, subject: 'Verify your SkillSwap email',
-    text: `Welcome to SkillSwap! Verify your email: ${webLink('/verify-email', token)}` });
+  await sendMail({ to: d.email, subject: 'Confirm your email to get started on SkillSwap', ...verifyMail(d.fullName, token) });
   res.status(201).json({ ok: true });
 }));
 
 router.post('/resend-verification', wrap(async (req, res) => {
   const d = parse(z.object({ identifier: z.string().trim().toLowerCase().min(1).max(254) }), req.body, res); if (!d) return;
-  const [[u]] = await pool.query("SELECT id, email FROM users WHERE (email = ? OR username = ?) AND status = 'active' AND email_verified_at IS NULL", [d.identifier, d.identifier]);
+  const [[u]] = await pool.query("SELECT id, email, full_name FROM users WHERE (email = ? OR username = ?) AND status = 'active' AND email_verified_at IS NULL", [d.identifier, d.identifier]);
   if (u) {
     const token = await issueEmailToken(u.id, 'verify_email', 48);
-    await sendMail({ to: u.email, subject: 'Verify your SkillSwap email', text: `Verify your email: ${webLink('/verify-email', token)}` });
+    await sendMail({ to: u.email, subject: 'Confirm your email to get started on SkillSwap', ...verifyMail(u.full_name, token) });
   }
   res.json({ ok: true }); // same response whether or not the account exists or is already verified
 }));
@@ -125,11 +129,14 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.post('/forgot-password', wrap(async (req, res) => {
   const d = parse(z.object({ email: z.string().trim().toLowerCase().email() }), req.body, res); if (!d) return;
-  const [[u]] = await pool.query("SELECT id FROM users WHERE email = ? AND status = 'active'", [d.email]);
+  const [[u]] = await pool.query("SELECT id, full_name FROM users WHERE email = ? AND status = 'active'", [d.email]);
   if (u) {
     const token = await issueEmailToken(u.id, 'reset_password', 1);
-    await sendMail({ to: d.email, subject: 'Reset your SkillSwap password',
-      text: `Reset your password (valid 1 hour): ${webLink('/reset-password', token)}` });
+    await sendMail({ to: d.email, subject: 'Reset your SkillSwap password', ...actionMail({
+      name: u.full_name, heading: 'Reset your password',
+      intro: 'We received a request to reset the password for your SkillSwap account. Use the button below to choose a new one. The link works for 1 hour.',
+      button: 'Reset password', link: webLink('/reset-password', token),
+      note: "If you didn't ask for this, you can ignore this email; your password won't change." }) });
   }
   res.json({ ok: true }); // same response whether or not the email exists
 }));
