@@ -18,6 +18,6 @@ export async function sendMail({ to, subject, text }) {
     return;
   }
   // Never throws: the account or reset token already exists, and the person can ask for the email again.
-  try { await transport.sendMail({ from: process.env.MAIL_FROM, to, subject, text }); }
+  try { const info = await transport.sendMail({ from: process.env.MAIL_FROM, to, subject, text }); console.log(`[mail] accepted by SMTP for ${to} (${subject}): ${info.response}`); }
   catch (e) { console.error(`[mail] FAILED to ${to} (${subject}): ${e.message}`); }
 }
