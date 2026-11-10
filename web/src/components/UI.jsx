@@ -28,7 +28,7 @@ export function Nav() {
       <Link to="/" className="logo">skill<b>swap</b></Link>
       {user ? <>
         <nav className="nav-links" aria-label="Main">
-          <NavLink to="/dashboard">Dashboard</NavLink><NavLink to="/discover">Discover</NavLink><NavLink to="/sessions">Sessions</NavLink><NavLink to="/messages">Chats{(social?.chatUnread || 0) > 0 && <span className="badge" aria-label={`${social.chatUnread} unread chats`}>{social.chatUnread}</span>}</NavLink><NavLink to="/connections">People{req > 0 && <span className="badge" aria-label={`${req} requests`}>{req}</span>}</NavLink><NavLink to="/notifications">Alerts{n > 0 && <span className="badge" aria-label={`${n} unread`}>{n}</span>}</NavLink><NavLink to="/settings">Settings</NavLink>
+          <NavLink to="/dashboard">Dashboard</NavLink><NavLink to="/discover">Discover</NavLink><NavLink to="/sessions">Sessions</NavLink><NavLink to="/meetings">Meetings</NavLink><NavLink to="/messages">Chats{(social?.chatUnread || 0) > 0 && <span className="badge" aria-label={`${social.chatUnread} unread chats`}>{social.chatUnread}</span>}</NavLink><NavLink to="/connections">People{req > 0 && <span className="badge" aria-label={`${req} requests`}>{req}</span>}</NavLink><NavLink to="/notifications">Alerts{n > 0 && <span className="badge" aria-label={`${n} unread`}>{n}</span>}</NavLink><NavLink to="/settings">Settings</NavLink>
         {user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}</nav>
         {themeBtn}<button className="btn ghost small" onClick={logout}>Log out</button>
       </> : <>
