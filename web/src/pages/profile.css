@@ -10,4 +10,6 @@
 .pf-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .pf-credits { display: grid; grid-template-columns: 120px 1fr; gap: 10px 20px; margin: 0; } .pf-credits dt { font: 400 .72rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); padding-top: 3px; } .pf-credits dd { margin: 0; }
 .pf-safety { border-top: 1px solid var(--line); padding-top: 20px; }
-@media (max-width: 860px) { .profile { grid-template-columns: 1fr; } .pf-cover { position: static; max-width: 380px; } .pf-tracks li { grid-template-columns: 34px 1fr; } .pf-tracks em { grid-column: 2; text-align: left; } }
+@media (max-width: 860px) { .profile { grid-template-columns: minmax(0, 1fr); } .pf-cover { position: static; max-width: 380px; } .pf-tracks li { grid-template-columns: 34px 1fr; } .pf-tracks em { grid-column: 2; text-align: left; } }
+/* long words, links and handles wrap instead of widening the page */
+.pf-notes { min-width: 0; } .pf-handle, .pf-bio, .pf-tracks b, .pf-tracks small, .pf-credits dd { overflow-wrap: anywhere; }
