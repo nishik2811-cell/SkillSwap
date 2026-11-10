@@ -169,3 +169,32 @@ test('realtime: live message, typing relay (members only), read events, presence
   const off = next(sa, 'presence'); sb.close(); assert.equal((await off).online, false);
   sa.close(); sc.close();
 });
+
+test('edit, react and search: own live messages only, members only, reactions toggle', async () => {
+  const [a, b, c] = await Promise.all([makeUser('ea'), makeUser('eb'), makeUser('ec')]);
+  await befriend(a, b);
+  const id = (await call('/conversations', 'POST', { type: 'direct', username: b.username }, a)).body.id;
+  const m = (await send(id, 'helo wrld 100%', a)).body, other = (await send(id, 'something else', b)).body;
+  const url = `/conversations/${id}/messages/${m.id}`;
+  assert.equal((await call(url, 'PATCH', { body: 'x' }, b)).status, 404);            // not the sender
+  assert.equal((await call(url, 'PATCH', { body: 'x' }, c)).status, 404);            // not a member
+  assert.equal((await call(url, 'PATCH', { body: '  ' }, a)).status, 400);
+  const e = await call(url, 'PATCH', { body: 'hello world 100%' }, a);
+  assert.equal(e.status, 200); assert.equal(e.body.body, 'hello world 100%'); assert.equal(e.body.edited, true);
+
+  assert.equal((await call(url + '/reactions', 'POST', { emoji: '<b>' }, b)).status, 400);
+  assert.equal((await call(url + '/reactions', 'POST', { emoji: '👍' }, c)).status, 404);
+  await call(url + '/reactions', 'POST', { emoji: '👍' }, a);
+  assert.deepEqual((await call(url + '/reactions', 'POST', { emoji: '👍' }, b)).body.reactions, [{ emoji: '👍', users: [a.username, b.username] }]);
+  assert.deepEqual((await call(url + '/reactions', 'POST', { emoji: '👍' }, a)).body.reactions, [{ emoji: '👍', users: [b.username] }]);
+
+  const find = async (q, who = a) => (await call(`/conversations/${id}/messages?q=${encodeURIComponent(q)}`, 'GET', undefined, who));
+  assert.deepEqual((await find('WORLD')).body.messages.map((x) => x.id), [m.id]);     // case-insensitive
+  assert.equal((await find('100%')).body.messages.length, 1);
+  assert.equal((await find('%')).body.messages.length, 1);                            // % is literal, not a wildcard
+  assert.equal((await find('helo')).body.messages.length, 0);                         // the old text is gone
+  assert.equal((await find('world', c)).status, 404);
+  await call(`/conversations/${id}/messages/${other.id}`, 'DELETE', undefined, b);
+  assert.equal((await find('something')).body.messages.length, 0);                    // deleted messages are not searchable
+  assert.equal((await call(`/conversations/${id}/messages/${other.id}`, 'PATCH', { body: 'back' }, b)).status, 404);
+});

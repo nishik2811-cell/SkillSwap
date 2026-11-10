@@ -14,6 +14,8 @@ import { router as meetings } from './meetings/routes.js';
 import { router as admin } from './admin/routes.js';
 import { loadUser } from './auth/middleware.js';
 
+// one place: a trailing slash (easy to paste from the browser) would break CORS origin matching and double the slash in emailed links
+if (process.env.WEB_ORIGIN) process.env.WEB_ORIGIN = process.env.WEB_ORIGIN.trim().replace(/\/+$/, '');
 export const app = express();
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1)); // behind the host's proxy (and Vercel's): real client IPs for rate limiting, correct https for secure cookies
 app.use(helmet());

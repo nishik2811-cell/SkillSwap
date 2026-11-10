@@ -11,8 +11,8 @@ Express + PostgreSQL on the server, React + Vite on the web. Free to host (Verce
 | Accounts | Register, email verification, log in by email or user ID, password reset, onboarding in four steps, public profile at `/u/<id>` |
 | Discover | Best Match ranking by default (skill fit, level, price, time-zone availability, language, teaching style, rating, profile completeness). Filters and other sorts. Weights are editable by an admin |
 | Connections | Requests, accept/reject, block, report. Live notifications |
-| Chat | Direct and group chats, read receipts, typing, presence, attachments |
-| Sessions | One-on-one and group Learning Sessions, capacity enforced under a row lock, approval or instant booking, cancel and reschedule, reminders, two-way reviews that feed ratings |
+| Chat | Direct and group chats, read receipts, typing, presence, attachments, edit your own messages, emoji reactions, search within a chat |
+| Sessions | One-on-one and group Learning Sessions, capacity enforced under a row lock, approval or instant booking, weekly repeat (up to 12 weeks), add-to-calendar file, cancel and reschedule, reminders, two-way reviews that feed ratings |
 | Payments | Razorpay checkout, signature-verified webhooks, refund policy, receipts, mentor earnings and payout requests |
 | Meeting Rooms | Video, audio, screen share, waiting room, host and co-host controls, hand raise, in-room chat (LiveKit) |
 | Admin | Overview and charts, people, reports, payments and refunds, disputes, payouts, skills, platform settings and ranking weights, audit log |
@@ -80,7 +80,7 @@ Design choices worth knowing:
 
 ## Testing
 
-`npm test` runs 54 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access, admin, and durable uploads. Payments have not been run against the real Razorpay gateway, and multi-person video has not been exercised end to end. See [CHECKLIST.md](CHECKLIST.md).
+`npm test` runs 57 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access, admin, and durable uploads. Payments have not been run against the real Razorpay gateway, and multi-person video has not been exercised end to end. See [CHECKLIST.md](CHECKLIST.md).
 
 ## Known limits
 

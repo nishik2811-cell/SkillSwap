@@ -35,6 +35,7 @@ export default function SessionDetail() {
       <div className="sd-price"><b>{priceOf(s)}</b>{s.seatsLeft != null && <span>{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left</span>}</div>
     </header>
     {s.description && <p style={{ whiteSpace: 'pre-wrap' }}>{s.description}</p>}
+    {s.status === 'scheduled' && <div><a className="btn small ghost" href={`/api/v1/sessions/${id}/calendar.ics`} download>Add to calendar</a></div>}
     {s.status === 'cancelled' && <Alert>This session was cancelled{s.cancelReason ? `: ${s.cancelReason}` : '.'}</Alert>}
     <Alert>{err}</Alert>
 

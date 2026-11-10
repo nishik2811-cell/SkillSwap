@@ -14,3 +14,7 @@
 .composer { border-top: 1px solid var(--line); padding: 12px 16px; background: var(--paper); } .composer textarea { border-radius: 14px; }
 .att-img { border-radius: 10px; }
 @media (max-width: 760px) { .chat { grid-template-columns: 1fr; } }
+.rxs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .mine .rxs { justify-content: flex-end; }
+.rx { min-height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: inherit; font: inherit; font-size: .85rem; cursor: pointer; } .rx[aria-pressed="true"] { border-color: var(--mentor); }
+.chat { grid-template-rows: minmax(0, 1fr); }   /* the thread scrolls inside the page, never the page itself */
+.bubble form textarea { width: min(52ch, 60vw); }

@@ -79,3 +79,16 @@ test('password reset: single use, invalidates sessions, old password dead', asyn
   assert.equal((await call('/login', 'POST', { identifier: u.email, password: u.password })).status, 401);
   assert.equal((await call('/login', 'POST', { identifier: u.email, password: 'brand new pass 2' })).status, 200);
 });
+
+test('resend verification: new working link, same answer for unknown or verified accounts; WEB_ORIGIN has no trailing slash', async () => {
+  const u = U('rs'); await call('/register', 'POST', u);
+  const first = tokenFor(u.email), n = sent.length;
+  assert.equal((await call('/resend-verification', 'POST', { identifier: u.username })).status, 200);
+  assert.equal(sent.length, n + 1);
+  assert.ok(!/[^:]\/\//.test(sent.at(-1).text.split('://')[1]), 'no double slash in the link');
+  assert.notEqual(tokenFor(u.email), first);
+  assert.equal((await call('/verify-email', 'POST', { token: tokenFor(u.email) })).status, 200);
+  assert.equal((await call('/resend-verification', 'POST', { identifier: u.email })).status, 200);       // already verified
+  assert.equal((await call('/resend-verification', 'POST', { identifier: 'nobody-' + run })).status, 200);
+  assert.equal(sent.length, n + 1);
+});

@@ -171,3 +171,22 @@ test('reminders fire once for sessions starting within 30 minutes', async () => 
   assert.equal((await notes(l)).filter((t) => t === 'session_reminder').length, 1);
   assert.equal((await notes(m)).filter((t) => t === 'session_reminder').length, 1);
 });
+
+test('repeat weekly: creates the series or nothing; calendar file', async () => {
+  const m = await makeUser('m9'), l = await makeUser('l9', { mentors: false });
+  const r = await call('/sessions', 'POST', mk({ title: 'Chords; part 1, intro', startsAt: inHours(48), weeks: 3 }), m);
+  assert.equal(r.status, 201); assert.equal(r.body.ids.length, 3); assert.equal(r.body.id, r.body.ids[0]);
+  const starts = await Promise.all(r.body.ids.map(async (id) => new Date((await call(`/sessions/${id}`, 'GET', null, m)).body.startsAt).getTime()));
+  assert.deepEqual(starts.map((t) => t - starts[0]), [0, 7 * 86_400_000, 14 * 86_400_000]);
+  // week 2 of a new series would land on week 3 of the first: nothing is created
+  assert.equal((await call('/sessions', 'POST', mk({ startsAt: inHours(48 + 7 * 24), weeks: 2 }), m)).body.error, 'overlaps_another_session');
+  assert.equal((await call('/sessions/mine', 'GET', null, m)).body.sessions.length, 3);
+  assert.equal((await call('/sessions', 'POST', mk({ startsAt: inHours(72), weeks: 13 }), m)).status, 400);
+
+  const ics = await fetch(`${base}/sessions/${r.body.id}/calendar.ics`, { headers: { cookie: l.cookie } });
+  assert.equal(ics.status, 200); assert.match(ics.headers.get('content-type'), /text\/calendar/);
+  const text = await ics.text();
+  assert.match(text, /^BEGIN:VCALENDAR\r\n/); assert.ok(text.includes('SUMMARY:Chords\\; part 1\\, intro\r\n'));
+  assert.ok(text.includes(`DTSTART:${new Date(starts[0]).toISOString().replace(/[-:]|\.\d{3}/g, '')}\r\n`));
+  assert.equal((await fetch(`${base}/sessions/${r.body.id}/calendar.ics`)).status, 401);
+});

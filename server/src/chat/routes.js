@@ -43,9 +43,11 @@ async function shapeMessages(rows) {
   const [att] = await pool.query('SELECT * FROM attachments WHERE message_id IN (?)', [ids]);
   const [senders] = await pool.query('SELECT id, username, full_name, avatar_path FROM users WHERE id IN (?)', [[...new Set(rows.map((r) => r.sender_id))]]);
   const sMap = new Map(senders.map((s) => [s.id, who(s)]));
+  const [rx] = await pool.query('SELECT r.message_id, r.emoji, u.username FROM message_reactions r JOIN users u ON u.id = r.user_id WHERE r.message_id IN (?) ORDER BY r.created_at', [ids]);
+  const reactionsOf = (id) => { const by = {}; for (const x of rx) if (x.message_id === id) (by[x.emoji] ||= []).push(x.username); return Object.entries(by).map(([emoji, users]) => ({ emoji, users })); };
   return rows.map((r) => ({
     id: r.id, conversationId: r.conversation_id, kind: r.kind, sender: sMap.get(r.sender_id), createdAt: r.created_at,
-    body: r.deleted_at ? null : r.body, deleted: !!r.deleted_at,
+    body: r.deleted_at ? null : r.body, deleted: !!r.deleted_at, edited: !!r.edited_at && !r.deleted_at, reactions: r.deleted_at ? [] : reactionsOf(r.id),
     attachments: r.deleted_at ? [] : att.filter((a) => a.message_id === r.id).map((a) => ({ id: a.id, name: a.original_name, mime: a.mime, size: a.size, url: `/api/v1/attachments/${a.id}` })),
   }));
 }
@@ -139,7 +141,10 @@ router.get('/conversations/:id', wrap(async (req, res) => {
 router.get('/conversations/:id/messages', wrap(async (req, res) => {
   if (!(await membership(cid(req), req.user.id))) return res.status(404).json({ error: 'not_found' });
   const before = Number(req.query.before) || Number.MAX_SAFE_INTEGER, limit = Math.min(Number(req.query.limit) || 30, 100);
-  const [rows] = await pool.query('SELECT * FROM messages WHERE conversation_id = ? AND id < ? ORDER BY id DESC LIMIT ?', [cid(req), before, limit + 1]);
+  const q = String(req.query.q || '').trim().slice(0, 100);   // search: same paging, only live text messages that contain q
+  const [rows] = q
+    ? await pool.query("SELECT * FROM messages WHERE conversation_id = ? AND id < ? AND kind = 'text' AND deleted_at IS NULL AND body LIKE ? ORDER BY id DESC LIMIT ?", [cid(req), before, `%${q.replace(/[\\%_]/g, '\\$&')}%`, limit + 1])
+    : await pool.query('SELECT * FROM messages WHERE conversation_id = ? AND id < ? ORDER BY id DESC LIMIT ?', [cid(req), before, limit + 1]);
   const page = rows.slice(0, limit).reverse();
   res.json({ messages: await shapeMessages(page), hasMore: rows.length > limit });
 }));
@@ -185,6 +190,35 @@ router.delete('/conversations/:id/messages/:mid', wrap(async (req, res) => {
   if (!r.affectedRows) return res.status(404).json({ error: 'not_found' });
   emitToConversation(cid(req), 'message_deleted', { conversationId: cid(req), id: Number(req.params.mid) });
   res.json({ ok: true });
+}));
+
+const REACTIONS = ['👍', '❤️', '😂', '🎉', '🙏', '👀'];
+const liveText = "kind = 'text' AND deleted_at IS NULL";
+async function broadcastUpdated(messageId) {
+  const [[row]] = await pool.query('SELECT * FROM messages WHERE id = ?', [messageId]);
+  const [msg] = await shapeMessages([row]);
+  emitToConversation(row.conversation_id, 'message_updated', msg);
+  return msg;
+}
+
+router.patch('/conversations/:id/messages/:mid', sendLimit, wrap(async (req, res) => {
+  const d = z.object({ body: z.string().trim().min(1).max(4000) }).safeParse(req.body); if (!d.success) return bad(res, d.error);
+  if (!(await membership(cid(req), req.user.id))) return res.status(404).json({ error: 'not_found' });
+  const [r] = await pool.query(`UPDATE messages SET body = ?, edited_at = NOW() WHERE id = ? AND conversation_id = ? AND sender_id = ? AND ${liveText}`, [d.data.body, Number(req.params.mid), cid(req), req.user.id]);
+  if (!r.affectedRows) return res.status(404).json({ error: 'not_found' });
+  res.json(await broadcastUpdated(Number(req.params.mid)));
+}));
+
+// Toggle: the same emoji from the same person a second time removes it.
+router.post('/conversations/:id/messages/:mid/reactions', sendLimit, wrap(async (req, res) => {
+  const d = z.object({ emoji: z.enum(REACTIONS) }).safeParse(req.body); if (!d.success) return bad(res, d.error);
+  const mid = Number(req.params.mid);
+  if (!(await membership(cid(req), req.user.id))) return res.status(404).json({ error: 'not_found' });
+  const [[m]] = await pool.query(`SELECT 1 FROM messages WHERE id = ? AND conversation_id = ? AND ${liveText}`, [mid, cid(req)]);
+  if (!m) return res.status(404).json({ error: 'not_found' });
+  const [r] = await pool.query('DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?', [mid, req.user.id, d.data.emoji]);
+  if (!r.affectedRows) await pool.query('INSERT IGNORE INTO message_reactions (message_id, user_id, emoji) VALUES (?,?,?)', [mid, req.user.id, d.data.emoji]);
+  res.json(await broadcastUpdated(mid));
 }));
 
 router.post('/conversations/:id/read', wrap(async (req, res) => {

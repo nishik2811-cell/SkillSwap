@@ -17,7 +17,7 @@ services:
       - { key: SMTP_PORT, sync: false }
       - { key: SMTP_USER, sync: false }
       - { key: SMTP_PASS, sync: false }
-      - { key: MAIL_FROM, value: "SkillSwap <no-reply@skillswap.local>" }
+      - { key: MAIL_FROM, sync: false }             # must be a sender verified with your SMTP service, e.g. SkillSwap <you@gmail.com>
       - { key: RAZORPAY_KEY_ID, sync: false }
       - { key: RAZORPAY_KEY_SECRET, sync: false }
       - { key: RAZORPAY_WEBHOOK_SECRET, sync: false }

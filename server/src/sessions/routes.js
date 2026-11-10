@@ -35,6 +35,7 @@ const createSchema = z.object({
   title: z.string().trim().min(3).max(120), description: z.string().trim().max(2000).optional(), skillId: z.number().int().positive(),
   startsAt: z.string().datetime(), durationMin: z.number().int().min(15).max(480), capacity: z.number().int().min(1).max(100).default(1),
   pricing: z.enum(['free', 'paid']).default('free'), pricePaise: z.number().int().min(100).max(10_000_000).optional(), autoAccept: z.boolean().default(false),
+  weeks: z.number().int().min(1).max(12).default(1),   // the same session every week for this many weeks
 }).refine((s) => (s.pricing === 'paid') === (s.pricePaise != null), { message: 'paid sessions need a price; free sessions cannot have one', path: ['pricePaise'] });
 
 async function mentorOverlap(conn, mentorId, startsAt, durationMin, exceptId = 0) {
@@ -50,15 +51,20 @@ router.post('/sessions', handle(async (req, res) => {
   if (start.getTime() < Date.now() + MIN_LEAD_MS) return res.status(400).json({ error: 'must_be_in_future' });
   const [[ms]] = await pool.query('SELECT 1 x FROM mentor_skills WHERE user_id = ? AND skill_id = ?', [req.user.id, d.skillId]);
   if (!ms) return res.status(400).json({ error: 'not_a_mentor_skill' }); // you can only run sessions for skills on your Mentor profile
-  const id = await inTx(async (conn) => {
+  const ids = await inTx(async (conn) => {
     const [[{ n }]] = await conn.query("SELECT COUNT(*) n FROM learning_sessions WHERE mentor_id = ? AND status = 'scheduled'", [req.user.id]);
-    if (n >= MAX_SCHEDULED) throw err(429, 'too_many_sessions'); // keeps one account from flooding Browse
-    if (await mentorOverlap(conn, req.user.id, start, d.durationMin)) throw err(409, 'overlaps_another_session');
-    const [r] = await conn.query('INSERT INTO learning_sessions (mentor_id, skill_id, title, description, starts_at, duration_min, capacity, pricing, price_paise, auto_accept) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [req.user.id, d.skillId, d.title, d.description || null, start, d.durationMin, d.capacity, d.pricing, d.pricePaise ?? null, d.autoAccept]);
-    return r.insertId;
+    if (n + d.weeks > MAX_SCHEDULED) throw err(429, 'too_many_sessions'); // keeps one account from flooding Browse
+    const made = [];
+    for (let w = 0; w < d.weeks; w++) {   // all or nothing: one clash rolls the whole series back
+      const at = new Date(start.getTime() + w * 7 * 86_400_000);   // ponytail: exactly 7 x 24h apart, so local time moves by an hour across a DST change
+      if (await mentorOverlap(conn, req.user.id, at, d.durationMin)) throw err(409, 'overlaps_another_session');
+      const [r] = await conn.query('INSERT INTO learning_sessions (mentor_id, skill_id, title, description, starts_at, duration_min, capacity, pricing, price_paise, auto_accept) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [req.user.id, d.skillId, d.title, d.description || null, at, d.durationMin, d.capacity, d.pricing, d.pricePaise ?? null, d.autoAccept]);
+      made.push(r.insertId);
+    }
+    return made;
   });
-  res.status(201).json({ id });
+  res.status(201).json({ id: ids[0], ids });
 }));
 
 const sessionSelect = (cols = '') => `SELECT s.*, ${cols}sk.name skill, m.username m_username, m.full_name m_full_name, m.avatar_path m_avatar_path, m.rating_avg m_rating_avg, m.rating_count m_rating_count,
@@ -111,6 +117,20 @@ router.get('/sessions/:id', handle(async (req, res) => {
   let reviewed = false;
   if (mine) reviewed = !!(await pool.query('SELECT 1 FROM reviews WHERE booking_id = ? AND reviewer_id = ?', [mine.id, req.user.id]))[0][0];
   res.json(shape(s, { mentor: mentorOf(s), isMentor, seatsLeft: Math.max(0, s.capacity - s.seats), myBooking: mine ? { id: mine.id, status: mine.status, note: mine.note, reviewed } : null, bookings }));
+}));
+
+// Calendar file for one session (RFC 5545). Same visibility as the page itself.
+const icsText = (v) => String(v || '').replace(/[\\;,]/g, '\\$&').replace(/\r?\n/g, '\\n');
+const icsTime = (d) => iso(d).replace(/[-:]|\.\d{3}/g, '');
+router.get('/sessions/:id/calendar.ics', handle(async (req, res) => {
+  const [[s]] = await pool.query(`${SESSION_SELECT} WHERE s.id = ?`, [Number(req.params.id)]);
+  if (!s || (s.mentor_id !== req.user.id && (await isBlocked(req.user.id, s.mentor_id)))) return res.status(404).json({ error: 'not_found' });
+  const url = `${process.env.WEB_ORIGIN || ''}/sessions/${s.id}`;
+  res.type('text/calendar').set('Content-Disposition', `attachment; filename="skillswap-session-${s.id}.ics"`).send([
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SkillSwap//EN', 'BEGIN:VEVENT', `UID:session-${s.id}@skillswap`, `DTSTAMP:${icsTime(new Date())}`,
+    `DTSTART:${icsTime(s.starts_at)}`, `DTEND:${icsTime(new Date(s.starts_at).getTime() + s.duration_min * 60_000)}`,
+    `SUMMARY:${icsText(s.title)}`, `DESCRIPTION:${icsText(`${s.skill} with ${s.m_full_name}. ${url}`)}`, `URL:${url}`,
+    `STATUS:${s.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED'}`, 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n'));
 }));
 
 // ---------- manage (mentor) ----------

@@ -76,10 +76,13 @@ function NewChat({ onClose, onCreated }) {
   </div></div>;
 }
 
+const REACTIONS = ['👍', '❤️', '😂', '🎉', '🙏', '👀'];   // same list as the server
+
 function Thread({ id, onGone, onChanged }) {
   const { user } = useAuth(); const { socket } = useSocial();
   const [info, setInfo] = useState(null); const [msgs, setMsgs] = useState([]); const [hasMore, setHasMore] = useState(false); const [err, setErr] = useState('');
   const [text, setText] = useState(''); const [files, setFiles] = useState([]); const [busy, setBusy] = useState(false); const [typers, setTypers] = useState({}); const [showInfo, setShowInfo] = useState(false);
+  const [edit, setEdit] = useState(null); const [pick, setPick] = useState(0); const [q, setQ] = useState(null); const [found, setFound] = useState(null);   // edit: {id, text}; pick: message with the emoji row open; q: null = search closed
   const bottom = useRef(); const box = useRef(); const lastTyping = useRef(0); const stick = useRef(true);
 
   const loadInfo = useCallback(() => api(`/conversations/${id}`).then(setInfo), [id]);
@@ -100,6 +103,7 @@ function Thread({ id, onGone, onChanged }) {
     const h = {
       message: (m) => { if (m.conversationId === Number(id)) setMsgs((l) => (l.some((x) => x.id === m.id) ? l : [...l, m])); },
       message_deleted: (d) => { if (d.conversationId === Number(id)) setMsgs((l) => l.map((m) => (m.id === d.id ? { ...m, deleted: true, body: null, attachments: [] } : m))); },
+      message_updated: (m) => { if (m.conversationId !== Number(id)) return; const swap = (l) => l && l.map((x) => (x.id === m.id ? m : x)); setMsgs(swap); setFound(swap); },
       read: (r) => { if (r.conversationId === Number(id)) setInfo((i) => i && { ...i, members: i.members.map((m) => (m.username === r.username ? { ...m, lastReadMessageId: Math.max(m.lastReadMessageId || 0, r.messageId) } : m)) }); },
       typing: (t) => { if (t.conversationId !== Number(id)) return; setTypers((x) => ({ ...x, [t.username]: t.typing ? Date.now() : 0 })); },
       presence: (p) => setInfo((i) => i && { ...i, members: i.members.map((m) => (m.username === p.username ? { ...m, online: p.online } : m)) }),
@@ -133,6 +137,10 @@ function Thread({ id, onGone, onChanged }) {
     } catch (x) { setErr(x.message === 'cannot_message' ? "You can't message this person right now." : errorText(x)); } // text stays, so nothing is lost
     finally { setBusy(false); }
   }
+  const fail = (x) => setErr(errorText(x));
+  const saveEdit = (e) => { e.preventDefault(); if (!edit.text.trim()) return; api(`/conversations/${id}/messages/${edit.id}`, { method: 'PATCH', body: { body: edit.text } }).then(() => setEdit(null)).catch(fail); };
+  const react = (m, emoji) => { setPick(0); api(`/conversations/${id}/messages/${m.id}/reactions`, { method: 'POST', body: { emoji } }).catch(fail); };
+  const search = (e) => { e.preventDefault(); if (!q.trim()) return setFound(null); api(`/conversations/${id}/messages?limit=100&q=${encodeURIComponent(q.trim())}`).then((r) => setFound(r.messages)).catch(fail); };
   const del = (m) => api(`/conversations/${id}/messages/${m.id}`, { method: 'DELETE' }).catch((x) => setErr(errorText(x)));
 
   if (!info) return <div style={{ padding: 16 }}><Alert>{err}</Alert>{!err && <div className="skeleton" />}</div>;
@@ -151,13 +159,21 @@ function Thread({ id, onGone, onChanged }) {
           <div><b>{info.type === 'group' ? info.title : <Link to={`/u/${direct?.username}`}>{info.title}</Link>}</b>
             <div className="hint">{direct ? (direct.online ? <span className="ok">● Online</span> : 'Offline') : `${info.members.length} members`}</div></div>
         </div>
-        {info.type === 'group' && <button className="btn small ghost" onClick={() => setShowInfo(!showInfo)}>Members</button>}
+        <div className="row" style={{ flexWrap: 'nowrap' }}>
+          <button className="btn small ghost" aria-pressed={q !== null} onClick={() => { setQ(q === null ? '' : null); setFound(null); }}>Search</button>
+          {info.type === 'group' && <button className="btn small ghost" onClick={() => setShowInfo(!showInfo)}>Members</button>}
+        </div>
       </header>
+      {q !== null && <form className="panel row" style={{ flexWrap: 'nowrap' }} onSubmit={search}>
+        <input autoFocus type="search" aria-label="Search this chat" placeholder="Search this chat…" maxLength={100} value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
+        <button className="btn small">Find</button>
+      </form>}
       {showInfo && <GroupPanel info={info} me={user.username} reload={() => { loadInfo(); onChanged(); }} onLeft={onGone} />}
       <div className="msgs" ref={box} onScroll={onScroll} role="log" aria-live="polite">
-        {hasMore && <button className="btn small ghost" style={{ alignSelf: 'center' }} onClick={older}>Load earlier messages</button>}
-        {msgs.length === 0 && <div className="empty">Say hello 👋</div>}
-        {msgs.map((m) => {
+        {found && <div className="hint" style={{ alignSelf: 'center' }}>{found.length ? `${found.length}${found.length === 100 ? '+' : ''} matching message${found.length === 1 ? '' : 's'}` : 'Nothing found.'}</div>}
+        {!found && hasMore && <button className="btn small ghost" style={{ alignSelf: 'center' }} onClick={older}>Load earlier messages</button>}
+        {!found && msgs.length === 0 && <div className="empty">Say hello 👋</div>}
+        {(found || msgs).map((m) => {
           const d = day(m.createdAt), sep = d !== prevDay ? <div className="daysep">{d}</div> : null; prevDay = d;
           if (m.kind === 'system') return <div key={m.id}>{sep}<div className="sys">{m.body}</div></div>;
           const mine = m.sender?.username === user.username;
@@ -165,12 +181,21 @@ function Thread({ id, onGone, onChanged }) {
             {!mine && info.type === 'group' && <div className="hint"><b>{m.sender?.fullName}</b></div>}
             <div className="bubble">
               {m.deleted ? <i className="muted">Message deleted</i> : <>
-                {m.body && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>}
+                {edit?.id === m.id
+                  ? <form className="stack" onSubmit={saveEdit}><textarea autoFocus aria-label="Edit message" rows={2} maxLength={4000} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setEdit(null)} />
+                    <div className="row"><button className="btn small accent" disabled={!edit.text.trim()}>Save</button><button type="button" className="btn small ghost" onClick={() => setEdit(null)}>Cancel</button></div></form>
+                  : m.body && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>}
                 {m.attachments.map((a) => a.mime.startsWith('image/')
                   ? <a key={a.id} href={a.url} target="_blank" rel="noreferrer"><img className="att-img" src={a.url} alt={a.name} loading="lazy" /></a>
                   : <a key={a.id} className="att" href={a.url} download>📎 {a.name} <span className="hint">{size(a.size)}</span></a>)}</>}
-              <div className="hint">{hm(m.createdAt)}{mine && !m.deleted && <button className="linkbtn" onClick={() => window.confirm('Delete this message for everyone?') && del(m)}>Delete</button>}</div>
-            </div></div>
+              <div className="hint">{hm(m.createdAt)}{m.edited && ' · edited'}
+                {!m.deleted && <button className="linkbtn" aria-expanded={pick === m.id} onClick={() => setPick(pick === m.id ? 0 : m.id)}>React</button>}
+                {mine && !m.deleted && <><button className="linkbtn" onClick={() => setEdit({ id: m.id, text: m.body || '' })}>Edit</button><button className="linkbtn" onClick={() => window.confirm('Delete this message for everyone?') && del(m)}>Delete</button></>}</div>
+            </div>
+            {(pick === m.id || m.reactions?.length > 0) && <div className="rxs">
+              {pick === m.id ? REACTIONS.map((e) => <button key={e} className="rx" aria-label={`React ${e}`} onClick={() => react(m, e)}>{e}</button>)
+                : m.reactions.map((r) => <button key={r.emoji} className="rx" aria-pressed={r.users.includes(user.username)} title={r.users.join(', ')} onClick={() => react(m, r.emoji)}>{r.emoji} {r.users.length}</button>)}
+            </div>}</div>
             {m.id === lastMine?.id && <div className="hint seen" style={{ textAlign: 'right' }}>{seenBy.length ? (direct ? 'Seen' : `Seen by ${seenBy.length}`) : 'Sent'}</div>}
           </div>;
         })}

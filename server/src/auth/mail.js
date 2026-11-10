@@ -4,7 +4,9 @@ export const sent = []; // captured only when NODE_ENV=test
 const transport = process.env.SMTP_HOST
   ? nodemailer.createTransport({
       host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587),
+      secure: Number(process.env.SMTP_PORT) === 465,
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,   // a blocked SMTP port must not hang the request
     })
   : null;
 
@@ -15,5 +17,7 @@ export async function sendMail({ to, subject, text }) {
     console.warn(`[mail] SMTP_HOST not set; email NOT sent. To: ${to}\n${subject}\n${text}`);
     return;
   }
-  await transport.sendMail({ from: process.env.MAIL_FROM, to, subject, text });
+  // Never throws: the account or reset token already exists, and the person can ask for the email again.
+  try { await transport.sendMail({ from: process.env.MAIL_FROM, to, subject, text }); }
+  catch (e) { console.error(`[mail] FAILED to ${to} (${subject}): ${e.message}`); }
 }

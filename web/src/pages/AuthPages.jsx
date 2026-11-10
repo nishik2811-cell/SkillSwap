@@ -4,6 +4,13 @@ import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, Field } from '../components/UI.jsx';
 
+function Resend({ identifier }) {
+  const [state, setState] = useState('');
+  const go = () => { setState('busy'); api('/auth/resend-verification', { method: 'POST', body: { identifier } }).then(() => setState('sent')).catch(() => setState('err')); };
+  if (state === 'sent') return <p className="hint" role="status">Sent again. Check spam too; it can take a minute.</p>;
+  return <p className="hint">No email? <button type="button" className="linkbtn" style={{ marginLeft: 0 }} disabled={state === 'busy'} onClick={go}>{state === 'busy' ? 'Sending…' : 'Send it again'}</button>{state === 'err' && ' Could not send. Try again shortly.'}</p>;
+}
+
 export function Register() {
   const [f, setF] = useState({ fullName: '', email: '', username: '', password: '' });
   const [avail, setAvail] = useState(null); // {available, suggestions} | 'invalid'
@@ -28,7 +35,7 @@ export function Register() {
       setErr(errorText(x));
     } finally { setBusy(false); }
   }
-  if (done) return <div className="center"><div className="card narrow stack"><h2>Check your inbox</h2><p>We sent a verification link to <b>{f.email}</b>. Open it, then log in to finish setting up.</p><Link className="btn" to="/login">Go to log in</Link></div></div>;
+  if (done) return <div className="center"><div className="card narrow stack"><h2>Check your inbox</h2><p>We sent a verification link to <b>{f.email}</b>. Open it, then log in to finish setting up.</p><Resend identifier={f.email} /><Link className="btn" to="/login">Go to log in</Link></div></div>;
   const hint = avail === 'invalid' ? '3–20 characters: letters, numbers, underscore' : avail?.available ? `@${f.username.toLowerCase()} is available` : avail && !avail.available ? 'That ID is taken. Try one of these:' : 'This is your public ID: skillswap.app/u/yourid';
   return (
     <div className="center"><form className="card narrow" onSubmit={submit} noValidate>
@@ -49,16 +56,16 @@ export function Register() {
 
 export function Login() {
   const { user, refresh } = useAuth(); const nav = useNavigate();
-  const [f, setF] = useState({ identifier: '', password: '' }); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({ identifier: '', password: '' }); const [err, setErr] = useState(''); const [unverified, setUnverified] = useState(false); const [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/dashboard" replace />;
   async function submit(e) {
-    e.preventDefault(); setErr(''); setBusy(true);
+    e.preventDefault(); setErr(''); setUnverified(false); setBusy(true);
     try { await api('/auth/login', { method: 'POST', body: f }); await refresh(); nav('/dashboard'); }
-    catch (x) { setErr(errorText(x)); } finally { setBusy(false); }
+    catch (x) { setErr(errorText(x)); setUnverified(x.message === 'email_not_verified'); } finally { setBusy(false); }
   }
   return (
     <div className="center"><form className="card narrow" onSubmit={submit}>
-      <h2>Welcome back</h2><Alert>{err}</Alert>
+      <h2>Welcome back</h2><Alert>{err}</Alert>{unverified && <Resend identifier={f.identifier} />}
       <Field id="id" label="Email or User ID"><input id="id" required value={f.identifier} onChange={(e) => setF({ ...f, identifier: e.target.value })} autoComplete="username" autoCapitalize="none" /></Field>
       <Field id="pw" label="Password"><input id="pw" type="password" required value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="current-password" /></Field>
       <button className="btn" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>

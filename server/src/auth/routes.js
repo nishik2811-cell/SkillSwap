@@ -78,6 +78,16 @@ router.post('/register', wrap(async (req, res) => {
   res.status(201).json({ ok: true });
 }));
 
+router.post('/resend-verification', wrap(async (req, res) => {
+  const d = parse(z.object({ identifier: z.string().trim().toLowerCase().min(1).max(254) }), req.body, res); if (!d) return;
+  const [[u]] = await pool.query("SELECT id, email FROM users WHERE (email = ? OR username = ?) AND status = 'active' AND email_verified_at IS NULL", [d.identifier, d.identifier]);
+  if (u) {
+    const token = await issueEmailToken(u.id, 'verify_email', 48);
+    await sendMail({ to: u.email, subject: 'Verify your SkillSwap email', text: `Verify your email: ${webLink('/verify-email', token)}` });
+  }
+  res.json({ ok: true }); // same response whether or not the account exists or is already verified
+}));
+
 router.post('/verify-email', wrap(async (req, res) => {
   const d = parse(z.object({ token: z.string().min(10) }), req.body, res); if (!d) return;
   const [r] = await pool.query(
