@@ -55,7 +55,7 @@ export default function Room() {
       setMyRole(j.role); setPhase('in'); rerender();
       const list = async (k) => { try { return (await LkRoom.getLocalDevices(k)).map((d) => ({ id: d.deviceId, label: d.label || k })); } catch { return []; } };
       setDevs({ audioinput: await list('audioinput'), videoinput: await list('videoinput'), audiooutput: await list('audiooutput') });
-    } catch (x) { connecting.current = false; setErr('Could not connect to the meeting. Check your network and try again.'); setPhase('lobby'); }
+    } catch (x) { connecting.current = false; console.error('LiveKit connect failed', x); setErr(`Could not connect to the meeting (${x?.message || 'unknown error'}). Check your network and try again.`); setPhase('lobby'); }
   }, [pre]);
 
   const join = useCallback(async () => {
