@@ -123,10 +123,10 @@ export default function Landing() {
           <p className="moa-mono">Back of the sleeve</p>
           <h2 id="sk">Every skill is a track</h2>
           <div className="sleeve-cols">
-            {[['Side A', skills.slice(0, half)], ['Side B', skills.slice(half)]].map(([label, list], c) => (
-              <div key={label}><p className="moa-mono">{label}</p>
+            {[skills.slice(0, half), skills.slice(half)].map((list, c) => { const label = list.length ? (list[0].category === list.at(-1).category ? list[0].category : `${list[0].category} to ${list.at(-1).category}`) : ''; return (
+              <div key={c}><p className="moa-mono">{label}</p>
                 <ul>{list.map((s, i) => <li key={s.id}><Link to={href(s)}><span className="moa-mono">{String(c * half + i + 1).padStart(2, '0')}</span><b>{s.name}</b><span className="moa-mono">{s.category}</span></Link></li>)}</ul></div>
-            ))}
+            ); })}
           </div>
           <p><Link className="cta line" to={user ? '/discover' : '/register'}>Browse all {all.length} skills</Link></p>
         </section>
