@@ -62,6 +62,7 @@ function Resend({ identifier }) {
 }
 
 export function Register() {
+  const { user } = useAuth();
   const [f, setF] = useState({ fullName: '', email: '', username: '', password: '' });
   const [err, setErr] = useState(''); const [fieldErrs, setFieldErrs] = useState({}); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -76,6 +77,7 @@ export function Register() {
       setErr(errorText(x));
     } finally { setBusy(false); }
   }
+  if (user && !done) return <Navigate to="/dashboard" replace />;   // already signed in
   if (done) return <div className="center"><div className="card narrow stack"><h2>Check your inbox</h2><p>We sent a verification link to <b>{f.email}</b>. Open it, then log in to finish setting up.</p><Resend identifier={f.email} /><Link className="btn" to="/login">Go to log in</Link></div></div>;
   const hint = idHint(avail, f.username, 'This is your public ID: skillswap.app/u/yourid', (s) => setF({ ...f, username: s }));
   return (

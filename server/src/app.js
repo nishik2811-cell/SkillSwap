@@ -22,7 +22,7 @@ app.use(helmet());
 app.use(cors({ origin: process.env.WEB_ORIGIN, credentials: true }));
 // the webhook signature covers the RAW bytes, so this route must be parsed as raw before express.json touches anything
 app.post('/api/v1/webhooks/razorpay', express.raw({ type: '*/*', limit: '256kb' }), webhookHandler);
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '200kb' })); // plenty for any form here; also caps the work a hostile body can cause
 app.use(cookieParser());
 app.use((req, res, next) => loadUser(req, res, next).catch(next));
 

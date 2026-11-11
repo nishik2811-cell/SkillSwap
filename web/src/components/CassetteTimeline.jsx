@@ -39,7 +39,7 @@ export default function CassetteTimeline() {
             <div className="c-keys">{[0, 1, 2, 3, 4].map((k) => <u key={k} className={k === i % 5 ? 'on' : ''} />)}</div>
           </div>
           {still ? <ol className="tape-list">{STEPS.map(([k, hh, pp]) => <li key={k}><b>{k}</b>{hh}<p className="tape-p">{pp}</p></li>)}</ol> : <div className="tape-copy">
-            <p className="moa-mono">Side A · How it works <span className="tape-n">{n}/06</span></p>
+            <p className="moa-mono">How it works <span className="tape-n">{n}/06</span></p>
             <div className="tape-num" key={`n${flip}`} aria-live="polite">{n}</div>
             <h3 key={`h${flip}`}>{h}</h3><p key={`p${flip}`} className="tape-p">{p}</p>
           </div>}

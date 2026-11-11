@@ -117,3 +117,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: n
 .gbtn:hover { background: #3b78e0; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); } .gbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .gbtn-logo { position: absolute; left: 2px; top: 2px; bottom: 2px; width: 42px; display: grid; place-items: center; background: #fff; border-radius: 2px; }
 .sugg { display: flex; gap: 8px; margin-top: 8px; } .sugg .chip { flex: 1 1 0; min-width: 0; justify-content: center; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* sign-in style forms: more air between the last field and the main button */
+form.narrow > .btn { margin-top: 14px; }

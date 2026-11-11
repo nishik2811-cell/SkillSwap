@@ -1,5 +1,5 @@
 # Backend image (Express API + Socket.IO + background jobs). Works on Railway, Render, Fly.io or any Docker host.
-# Needs a persistent volume mounted at /data (uploads) and a MySQL database. See DEPLOY.md.
+# Needs a persistent volume mounted at /data (uploads) and a PostgreSQL database (DATABASE_URL). See DEPLOY.md.
 FROM node:22-slim
 WORKDIR /app
 COPY package.json package-lock.json ./
