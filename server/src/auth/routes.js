@@ -115,6 +115,12 @@ router.post('/google/complete', wrap(async (req, res) => {
   }
   await startSession(res, id);
   res.clearCookie(GPENDING, { path: GPATH });
+  void sendMail({ to: p.email, subject: 'Welcome to SkillSwap', ...actionMail({ // fire and forget: a slow mail server must not hold up the sign-in
+    name: p.name, heading: 'Welcome to SkillSwap',
+    intro: `Your account is ready. You signed in with Google, and your User ID is @${d.username}. We are glad you are here.`,
+    steps: ['Add the skills you can teach and the ones you want to learn.', 'Browse your Best Matches and send a connection request.', 'Chat, book a session, and meet in the built-in video room.'],
+    button: 'Open SkillSwap', link: `${String(process.env.WEB_ORIGIN || '').replace(/\/$/, '')}/dashboard`,
+    note: "If you didn't create this account, you can ignore this email." }) });
   res.status(201).json({ ok: true });
 }));
 

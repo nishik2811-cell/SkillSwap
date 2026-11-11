@@ -123,6 +123,7 @@ test('Google sign-in: state check, new account, relinking, hijack protection, su
   assert.equal(taken.status, 409); assert.equal(taken.body.error, 'username_taken'); assert.ok(taken.body.suggestions.length > 0);
   const gname = `g${run}`.slice(0, 20);
   const done = await call('/google/complete', 'POST', { username: gname }, pend); assert.equal(done.status, 201);
+  const welcome = sent.filter((m) => m.to === email && m.subject === 'Welcome to SkillSwap'); assert.equal(welcome.length, 1); assert.ok(welcome[0].text.includes(`@${gname}`) && welcome[0].html.includes('/dashboard'));
   const me = await call('/me', 'GET', undefined, done.cookie); assert.equal(me.status, 200); assert.equal(me.body.user.email, email); assert.equal(me.body.user.username, gname);
   assert.equal((await cb()).loc, '/dashboard'); // same Google account again: straight in
   const [[n]] = await pool.query('SELECT COUNT(*) c, COUNT(email_verified_at) v FROM users WHERE email = ?', [email]); assert.equal(Number(n.c), 1); assert.equal(Number(n.v), 1);

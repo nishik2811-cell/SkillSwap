@@ -19,3 +19,4 @@ body.has-chip .vinyl-disc { cursor: none; }
 .sleeve.about .about-terms li { display: grid; grid-template-columns: 40px minmax(90px, 160px) 1fr; gap: 16px; align-items: baseline; padding: 18px 0; border-top: 1px solid var(--line); } .about-terms li:last-child { border-bottom: 1px solid var(--line); }
 .sleeve.about .about-terms li b { font: 800 1.4rem var(--display); font-stretch: 125%; text-transform: uppercase; } .about-line { color: var(--muted); line-height: 1.5; }
 @media (max-width: 640px) { .sleeve.about .about-terms li { grid-template-columns: 32px 1fr; } .about-line { grid-column: 2; } }
+.sleeve > p:last-child { margin: 36px 0 0; }
