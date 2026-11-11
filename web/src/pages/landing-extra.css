@@ -11,11 +11,5 @@ body.has-chip .vinyl-disc { cursor: none; }
 .macro-tag { position: absolute; right: clamp(16px, 2.4vw, 32px); bottom: 16%; font: 400 .74rem var(--mono, monospace); letter-spacing: .12em; text-transform: uppercase; color: #8f8b98; }
 .zoom-track.nozoom .macro { display: none; }
 
-.about { position: relative; display: grid; gap: clamp(24px, 5vw, 64px); padding: clamp(56px, 10vw, 120px) clamp(16px, 2.4vw, 32px); background: var(--bg); overflow: hidden; }
-.about-record { width: min(70vmin, 560px); aspect-ratio: 1; margin: 0 auto; animation: aspin 40s linear infinite; } .about-record svg { width: 100%; height: 100%; overflow: visible; }
-.ab-disc { fill: #17171c; stroke: rgba(236,235,228,.2); } .ab-groove { fill: none; stroke: rgba(236,235,228,.08); stroke-width: 2; } .ab-ring { font: 800 54px var(--display); font-stretch: 100%; letter-spacing: .04em; fill: rgba(236,235,228,.78); } .ab-label { fill: var(--accent); } .ab-lbl { font: 800 46px var(--display); font-stretch: 125%; fill: var(--on-accent, #f4f3ff); }
-.about-copy { max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; width: 100%; } .about-copy .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6fd0a0; margin-right: 8px; }
-.about-lead { font: 400 clamp(1rem, 1.6vw, 1.2rem)/1.55 var(--display); color: var(--muted); max-width: 46ch; margin: 6px 0 0; }
-.about-h { font: 800 clamp(1.7rem, 4.2vw, 3.1rem)/1.12 var(--display); font-stretch: 112%; text-transform: none; letter-spacing: -.015em; max-width: 24ch; } .about-h em { font-style: normal; text-decoration: underline 0.13em var(--accent); text-underline-offset: .14em; text-decoration-skip-ink: none; }
 @keyframes aspin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .about-record { animation: none; } .drag-chip { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .drag-chip { transition: none; } }

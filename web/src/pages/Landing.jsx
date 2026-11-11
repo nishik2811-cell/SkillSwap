@@ -9,7 +9,6 @@ import Macro from '../components/Macro.jsx';
 import SideB from '../components/SideB.jsx';
 import CassetteTimeline from '../components/CassetteTimeline.jsx';
 import DragChip from '../components/DragChip.jsx';
-import AboutRecord from '../components/AboutRecord.jsx';
 import './landing-extra.css';
 import './landing.css';
 import './landing-motion.css';
@@ -114,7 +113,6 @@ export default function Landing() {
         </div>
       </div>
 
-      <AboutRecord record={false} />
       <CassetteTimeline />
 
       {skills?.length > 0 && (
