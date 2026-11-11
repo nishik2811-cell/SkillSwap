@@ -30,6 +30,7 @@ hitting `/api/v1/health` every 10 minutes keeps the API awake but may exceed fre
 1. Import the repo, **Root Directory `web`**.
 2. `web/vercel.json` sends `/api/*` and `/uploads/*` to the Render service. If your service URL differs, change the host there, commit and push.
 3. Environment variable `VITE_REALTIME_URL` = `https://<service>.onrender.com`.
+4. Optional: `VITE_SUPPORT_EMAIL` = the support address shown on /contact and the policy pages (/terms, /privacy, /refunds). Redeploy after setting it.
 
 ## 4. First admin
 Register an account, then run `npm run make-admin -w server -- <your-id>` against the same `DATABASE_URL`

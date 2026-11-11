@@ -80,3 +80,4 @@ body:has(.moa-root) .nav { display: none; }
 .wordmark { font: 900 min(11.4vw, 15rem)/.8 var(--display); font-stretch: 125%; letter-spacing: -.02em; color: var(--fg); opacity: .09; margin: clamp(32px, 6vw, 80px) 0 20px; white-space: nowrap; overflow: hidden; user-select: none; }
 @media (max-width: 760px) { .tracks li { grid-template-columns: 36px 1fr; gap: 8px 14px; } .tracks p, .tag-r { grid-column: 2; text-align: left; } .sleeve-cols { grid-template-columns: 1fr; } .readout { top: 30%; } .zoom-track { height: 300vh; } }
 @media (prefers-reduced-motion: reduce) { .tracks li, .sleeve li a { transition: none; } }
+.end-legal { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; } .end-legal span { display: flex; flex-wrap: wrap; gap: 8px 20px; } .end-legal a { color: inherit; text-decoration: none; } .end-legal a:hover { color: var(--accent); }

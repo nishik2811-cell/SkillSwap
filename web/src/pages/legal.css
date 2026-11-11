@@ -1,0 +1,9 @@
+/* Policy pages: a plain, readable document */
+.legal { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; line-height: 1.65; }
+.legal-kicker { font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+.legal h1 { margin: 0 0 20px; font-size: clamp(2rem, 5vw, 3rem); }
+.legal h2 { margin: 36px 0 10px; font-size: 1.2rem; }
+.legal ul { padding-left: 20px; margin: 0; } .legal li { margin: 6px 0; }
+.legal a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.legal-big { font-size: 1.15rem; }
+.legal-links { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); font: 400 .74rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }

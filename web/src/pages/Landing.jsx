@@ -136,7 +136,7 @@ export default function Landing() {
         <div className="end-cta"><h2>Drop the needle</h2>
           <Link className="cta solid" to={user ? '/dashboard' : '/register'}>{user ? 'Open dashboard' : 'Join SkillSwap'}</Link></div>
         <div className="wordmark" aria-hidden="true">SKILLSWAP</div>
-        <p className="moa-mono">© 2026 SkillSwap · Mentors and Learners</p>
+        <p className="moa-mono end-legal">© 2026 SkillSwap · Mentors and Learners<span><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><Link to="/refunds">Refunds</Link><Link to="/contact">Contact</Link></span></p>
       </footer>
     </div>
   );
