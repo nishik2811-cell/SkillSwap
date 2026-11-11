@@ -16,10 +16,9 @@ export default function AboutRecord({ record = true }) {
         </svg>
       </div>}
       <div className="about-copy">
-        <p className="moa-mono"><i className="dot" /> Open to new Mentors and Learners</p>
-        <p className="about-lead">Visuals for people who learn out loud.</p>
-        <p className="moa-mono">About</p>
-        <h2 id="about-h" className="about-h">A community where <em>mentors</em>, <em>learners</em> and <em>everyone in between</em> trade what they know, for free, for pay, or skill for skill.</h2>
+        <p className="moa-mono">Side A · About SkillSwap</p>
+        <h2 id="about-h" className="about-h">You teach <em>guitar</em>. Someone teaches you <em>Python</em>. You pick the terms: free, paid, or a straight swap.</h2>
+        <p className="about-lead">Everyone knows something, and everyone is still learning something. SkillSwap puts those two people in the same room.</p>
       </div>
     </section>
   );
