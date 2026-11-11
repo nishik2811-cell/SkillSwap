@@ -7,7 +7,7 @@ export async function loadUser(req, _res, next) {
   const sid = req.cookies?.[COOKIE];
   if (sid) {
     const [[u]] = await pool.query(
-      `SELECT u.id, u.email, u.username, u.full_name, u.role, u.status, u.onboarding_done
+      `SELECT u.id, u.email, u.username, u.full_name, u.role, u.status, u.onboarding_done, u.presence_status
        FROM auth_sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > NOW() AND u.status = 'active'`, [sha256(sid)]);
     req.user = u || null;

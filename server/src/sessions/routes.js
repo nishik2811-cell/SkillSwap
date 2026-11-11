@@ -4,6 +4,7 @@ import { pool, inTx } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { notify } from '../notify.js';
 import { refundForBooking, refundForLearnerCancel } from '../payments/service.js';
+import { connectedIds } from '../connected.js';
 
 export const router = Router();
 router.use(['/sessions', '/bookings'], requireAuth);
@@ -22,12 +23,24 @@ const lockSession = async (conn, id) => (await conn.query('SELECT * FROM learnin
 const seatsTaken = async (conn, sid) => (await conn.query(`SELECT COUNT(*) n FROM bookings WHERE session_id = ? AND status IN ${SEAT_STATUSES}`, [sid]))[0][0].n;
 const isBlocked = async (a, b) => !!(await pool.query('SELECT 1 FROM blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?)', [a, b, b, a]))[0][0];
 const err = (status, error) => Object.assign(new Error(error), { http: status });
+// Who may see a session: everyone if public; if private, its mentor, the people invited, and anyone who booked.
+const canSee = async (s, userId, q = pool) => s.mentor_id === userId || s.visibility === 'public'
+  || !!(await q.query('SELECT 1 x FROM session_invites WHERE session_id = ? AND user_id = ? UNION ALL SELECT 1 FROM bookings WHERE session_id = ? AND learner_id = ? LIMIT 1', [s.id, userId, s.id, userId]))[0][0];
+/** Invite connections to one or more sessions (a weekly series shares its invites). Returns how many people were invited. */
+async function inviteTo(sessionIds, mentor, usernames, title) {
+  const ids = await connectedIds(mentor.id, usernames);
+  for (const uid of ids) {
+    for (const sid of sessionIds) await pool.query('INSERT INTO session_invites (session_id, user_id) VALUES (?,?) ON CONFLICT DO NOTHING', [sid, uid]);
+    await notify(uid, { type: 'session_invite', title: `${mentor.full_name} invited you to “${title}”`.slice(0, 160), body: 'Open it to book your seat.', link: `/sessions/${sessionIds[0]}` });
+  }
+  return ids.length;
+}
 const handle = (fn) => wrap(async (req, res) => { try { await fn(req, res); } catch (e) { if (e.http) return res.status(e.http).json({ error: e.message }); throw e; } });
 
 const shape = (s, extra = {}) => ({
   id: s.id, title: s.title, description: s.description, startsAt: iso(s.starts_at), endsAt: iso(new Date(s.starts_at).getTime() + s.duration_min * 60_000), durationMin: s.duration_min,
   capacity: s.capacity, kind: s.capacity > 1 ? 'group' : 'individual', pricing: s.pricing, pricePaise: s.price_paise, autoAccept: !!s.auto_accept, status: s.status,
-  cancelReason: s.cancel_reason, skill: s.skill, skillId: s.skill_id, ...extra,
+  cancelReason: s.cancel_reason, skill: s.skill, skillId: s.skill_id, visibility: s.visibility || 'public', ...extra,
 });
 
 // ---------- create / browse ----------
@@ -36,6 +49,7 @@ const createSchema = z.object({
   startsAt: z.string().datetime(), durationMin: z.number().int().min(15).max(480), capacity: z.number().int().min(1).max(100).default(1),
   pricing: z.enum(['free', 'paid']).default('free'), pricePaise: z.number().int().min(100).max(10_000_000).optional(), autoAccept: z.boolean().default(false),
   weeks: z.number().int().min(1).max(12).default(1),   // the same session every week for this many weeks
+  visibility: z.enum(['public', 'private']).default('public'), invite: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(20).default([]),
 }).refine((s) => (s.pricing === 'paid') === (s.pricePaise != null), { message: 'paid sessions need a price; free sessions cannot have one', path: ['pricePaise'] });
 
 async function mentorOverlap(conn, mentorId, startsAt, durationMin, exceptId = 0) {
@@ -58,13 +72,14 @@ router.post('/sessions', handle(async (req, res) => {
     for (let w = 0; w < d.weeks; w++) {   // all or nothing: one clash rolls the whole series back
       const at = new Date(start.getTime() + w * 7 * 86_400_000);   // ponytail: exactly 7 x 24h apart, so local time moves by an hour across a DST change
       if (await mentorOverlap(conn, req.user.id, at, d.durationMin)) throw err(409, 'overlaps_another_session');
-      const [r] = await conn.query('INSERT INTO learning_sessions (mentor_id, skill_id, title, description, starts_at, duration_min, capacity, pricing, price_paise, auto_accept) VALUES (?,?,?,?,?,?,?,?,?,?)',
-        [req.user.id, d.skillId, d.title, d.description || null, at, d.durationMin, d.capacity, d.pricing, d.pricePaise ?? null, d.autoAccept]);
+      const [r] = await conn.query('INSERT INTO learning_sessions (mentor_id, skill_id, title, description, starts_at, duration_min, capacity, pricing, price_paise, auto_accept, visibility) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        [req.user.id, d.skillId, d.title, d.description || null, at, d.durationMin, d.capacity, d.pricing, d.pricePaise ?? null, d.autoAccept, d.visibility]);
       made.push(r.insertId);
     }
     return made;
   });
-  res.status(201).json({ id: ids[0], ids });
+  const invited = d.invite.length ? await inviteTo(ids, req.user, d.invite, d.title) : 0;
+  res.status(201).json({ id: ids[0], ids, invited });
 }));
 
 const sessionSelect = (cols = '') => `SELECT s.*, ${cols}sk.name skill, m.username m_username, m.full_name m_full_name, m.avatar_path m_avatar_path, m.rating_avg m_rating_avg, m.rating_count m_rating_count,
@@ -75,10 +90,11 @@ const mentorOf = (s) => ({ ...who(s, 'm_'), rating: { avg: s.m_rating_avg == nul
 
 router.get('/sessions', handle(async (req, res) => {
   const q = z.object({ skillId: z.coerce.number().int().positive().optional(), pricing: z.enum(['free', 'paid']).optional(), kind: z.enum(['individual', 'group']).optional(),
-    q: z.string().trim().max(60).optional(), page: z.coerce.number().int().min(1).default(1) }).safeParse(req.query);
+    q: z.string().trim().max(60).optional(), page: z.coerce.number().int().min(1).default(1), when: z.enum(['upcoming', 'live']).default('upcoming') }).safeParse(req.query);
   if (!q.success) return bad(res, q.error);
-  const f = q.data, where = ["s.status = 'scheduled'", 's.starts_at > NOW()', 's.mentor_id <> ?', "m.status = 'active'",
-    'NOT EXISTS (SELECT 1 FROM blocks bl WHERE (bl.blocker_id = s.mentor_id AND bl.blocked_id = ?) OR (bl.blocker_id = ? AND bl.blocked_id = s.mentor_id))'], args = [req.user.id, req.user.id, req.user.id];
+  const f = q.data, where = ["s.status = 'scheduled'", f.when === 'live' ? 's.starts_at <= NOW() AND DATE_ADD(s.starts_at, INTERVAL s.duration_min MINUTE) > NOW()' : 's.starts_at > NOW()', 's.mentor_id <> ?', "m.status = 'active'",
+    "(s.visibility = 'public' OR EXISTS (SELECT 1 FROM session_invites i WHERE i.session_id = s.id AND i.user_id = ?))",
+    'NOT EXISTS (SELECT 1 FROM blocks bl WHERE (bl.blocker_id = s.mentor_id AND bl.blocked_id = ?) OR (bl.blocker_id = ? AND bl.blocked_id = s.mentor_id))'], args = [req.user.id, req.user.id, req.user.id, req.user.id];
   if (f.skillId) { where.push('s.skill_id = ?'); args.push(f.skillId); }
   if (f.pricing) { where.push('s.pricing = ?'); args.push(f.pricing); }
   if (f.kind) where.push(f.kind === 'group' ? 's.capacity > 1' : 's.capacity = 1');
@@ -105,7 +121,7 @@ router.get('/sessions/mine', handle(async (req, res) => {
 
 router.get('/sessions/:id', handle(async (req, res) => {
   const [[s]] = await pool.query(`${SESSION_SELECT} WHERE s.id = ?`, [Number(req.params.id)]);
-  if (!s || (s.mentor_id !== req.user.id && (await isBlocked(req.user.id, s.mentor_id)))) return res.status(404).json({ error: 'not_found' });
+  if (!s || (s.mentor_id !== req.user.id && (await isBlocked(req.user.id, s.mentor_id))) || !(await canSee(s, req.user.id))) return res.status(404).json({ error: 'not_found' });
   const isMentor = s.mentor_id === req.user.id;
   const [[mine]] = await pool.query('SELECT id, status, note FROM bookings WHERE session_id = ? AND learner_id = ?', [s.id, req.user.id]);
   let bookings;
@@ -124,7 +140,7 @@ const icsText = (v) => String(v || '').replace(/[\\;,]/g, '\\$&').replace(/\r?\n
 const icsTime = (d) => iso(d).replace(/[-:]|\.\d{3}/g, '');
 router.get('/sessions/:id/calendar.ics', handle(async (req, res) => {
   const [[s]] = await pool.query(`${SESSION_SELECT} WHERE s.id = ?`, [Number(req.params.id)]);
-  if (!s || (s.mentor_id !== req.user.id && (await isBlocked(req.user.id, s.mentor_id)))) return res.status(404).json({ error: 'not_found' });
+  if (!s || (s.mentor_id !== req.user.id && (await isBlocked(req.user.id, s.mentor_id))) || !(await canSee(s, req.user.id))) return res.status(404).json({ error: 'not_found' });
   const url = `${process.env.WEB_ORIGIN || ''}/sessions/${s.id}`;
   res.type('text/calendar').set('Content-Disposition', `attachment; filename="skillswap-session-${s.id}.ics"`).send([
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SkillSwap//EN', 'BEGIN:VEVENT', `UID:session-${s.id}@skillswap`, `DTSTAMP:${icsTime(new Date())}`,
@@ -195,14 +211,22 @@ router.post('/sessions/:id/complete', handle(async (req, res) => {
 }));
 
 // ---------- booking (learner) ----------
+router.post('/sessions/:id/invites', handle(async (req, res) => {
+  const p = z.object({ usernames: z.array(z.string().trim().toLowerCase().min(1).max(40)).min(1).max(20) }).safeParse(req.body || {}); if (!p.success) return bad(res, p.error);
+  const [[s]] = await pool.query('SELECT id, mentor_id, title, status, starts_at, duration_min FROM learning_sessions WHERE id = ?', [Number(req.params.id)]);
+  if (!s || s.mentor_id !== req.user.id) throw err(s ? 403 : 404, s ? 'not_allowed' : 'not_found');
+  if (s.status !== 'scheduled' || new Date(s.starts_at).getTime() + s.duration_min * 60_000 <= Date.now()) throw err(409, 'not_bookable');
+  res.json({ sent: await inviteTo([s.id], req.user, p.data.usernames, s.title) });
+}));
+
 router.post('/sessions/:id/book', handle(async (req, res) => {
   const p = z.object({ note: z.string().trim().max(300).optional() }).safeParse(req.body || {}); if (!p.success) return bad(res, p.error);
   let status, mentorId, title;
   await inTx(async (conn) => {
     const s = await lockSession(conn, Number(req.params.id)); // row lock serialises concurrent bookings for this session
-    if (!s || (await isBlocked(req.user.id, s.mentor_id))) throw err(404, 'not_found');
+    if (!s || (await isBlocked(req.user.id, s.mentor_id)) || !(await canSee(s, req.user.id, conn))) throw err(404, 'not_found');
     if (s.mentor_id === req.user.id) throw err(400, 'cannot_book_own_session');
-    if (s.status !== 'scheduled' || new Date(s.starts_at).getTime() <= Date.now()) throw err(409, 'not_bookable');
+    if (s.status !== 'scheduled' || new Date(s.starts_at).getTime() + s.duration_min * 60_000 <= Date.now()) throw err(409, 'not_bookable'); // a session already underway can still be joined until it ends
     const [[existing]] = await conn.query('SELECT id, status FROM bookings WHERE session_id = ? AND learner_id = ? FOR UPDATE', [s.id, req.user.id]);
     if (existing && !['cancelled'].includes(existing.status)) throw err(409, existing.status === 'rejected' ? 'previously_declined' : 'already_booked');
     if ((await seatsTaken(conn, s.id)) >= s.capacity) throw err(409, 'full');

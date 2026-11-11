@@ -6,14 +6,23 @@ import { COOKIE } from './auth/middleware.js';
 
 let io = null;
 const online = new Map(); // userId -> number of open sockets (one user may have several tabs)
+const chosen = new Map(); // userId -> the status they picked ('online' | 'away' | 'busy' | 'invisible'), for connected users
 export const isOnline = (userId) => online.has(userId);
+/** What others see: the picked status while connected, null (offline) otherwise. Invisible looks offline. */
+export const presenceOf = (userId) => { const s = chosen.get(userId) || 'online'; return online.has(userId) && s !== 'invisible' ? s : null; };
 
 async function coMembers(userId) {
   const [rows] = await pool.query('SELECT DISTINCT b.user_id FROM conversation_members a JOIN conversation_members b ON b.conversation_id = a.conversation_id WHERE a.user_id = ? AND b.user_id <> ?', [userId, userId]);
   return rows.map((r) => r.user_id);
 }
-async function broadcastPresence(userId, username, isOn) {
-  for (const id of await coMembers(userId)) io.to(`user:${id}`).emit('presence', { username, online: isOn, at: new Date().toISOString() });
+async function broadcastPresence(userId, username) {
+  const status = presenceOf(userId);
+  for (const id of await coMembers(userId)) io.to(`user:${id}`).emit('presence', { username, online: !!status, status, at: new Date().toISOString() });
+}
+/** The person picked a new status: remember it and tell the people they chat with. */
+export function setStatus(userId, username, status) {
+  chosen.set(userId, status);
+  if (io && online.has(userId)) broadcastPresence(userId, username).catch(() => {});
 }
 
 export function initRealtime(httpServer) {
@@ -25,12 +34,12 @@ export function initRealtime(httpServer) {
       if (socket.handshake.auth?.token && !tokenUid) return next(new Error('unauthenticated'));
       const sid = tokenUid ? null : parseCookie(socket.handshake.headers.cookie || '')[COOKIE];
       const [[u]] = tokenUid
-        ? await pool.query("SELECT id, username FROM users WHERE id = ? AND status = 'active'", [tokenUid])
+        ? await pool.query("SELECT id, username, presence_status FROM users WHERE id = ? AND status = 'active'", [tokenUid])
         : sid ? await pool.query(
-          `SELECT u.id, u.username FROM auth_sessions s JOIN users u ON u.id = s.user_id
+          `SELECT u.id, u.username, u.presence_status FROM auth_sessions s JOIN users u ON u.id = s.user_id
            WHERE s.token_hash = ? AND s.expires_at > NOW() AND u.status = 'active'`, [sha256(sid)]) : [[]];
       if (!u) return next(new Error('unauthenticated'));
-      socket.data.userId = u.id; socket.data.username = u.username;
+      socket.data.userId = u.id; socket.data.username = u.username; chosen.set(u.id, u.presence_status || 'online');
       next();
     } catch (e) { next(e); }
   });
@@ -40,7 +49,7 @@ export function initRealtime(httpServer) {
     const [convs] = await pool.query('SELECT conversation_id FROM conversation_members WHERE user_id = ?', [userId]);
     convs.forEach((c) => socket.join(`conv:${c.conversation_id}`));
     online.set(userId, (online.get(userId) || 0) + 1);
-    if (online.get(userId) === 1) broadcastPresence(userId, username, true).catch(() => {});
+    if (online.get(userId) === 1) broadcastPresence(userId, username).catch(() => {});
 
     // Typing is ephemeral: relayed only into rooms this socket really belongs to, never stored.
     socket.on('typing', ({ conversationId, typing } = {}) => {
@@ -49,7 +58,7 @@ export function initRealtime(httpServer) {
     });
     socket.on('disconnect', () => {
       const n = (online.get(userId) || 1) - 1;
-      if (n <= 0) { online.delete(userId); broadcastPresence(userId, username, false).catch(() => {}); } else online.set(userId, n);
+      if (n <= 0) { online.delete(userId); broadcastPresence(userId, username).catch(() => {}); } else online.set(userId, n);
     });
   });
   return io;

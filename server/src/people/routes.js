@@ -6,6 +6,7 @@ import { mkdir, rename, unlink } from 'node:fs/promises';
 import { keep, forget } from '../files.js';
 import { pool } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
+import { setStatus } from '../realtime.js';
 import { scoreCandidate, sortResults, DEFAULT_WEIGHTS } from './ranking.js';
 
 export const router = Router();
@@ -92,6 +93,14 @@ async function myProfile(userId) {
 }
 
 router.get('/me/profile', requireAuth, wrap(async (req, res) => res.json(await myProfile(req.user.id))));
+
+// Discord-style status: what the people you chat with see next to your name while you're connected
+router.patch('/me/status', requireAuth, wrap(async (req, res) => {
+  const p = z.object({ status: z.enum(['online', 'away', 'busy', 'invisible']) }).safeParse(req.body); if (!p.success) return bad(res, p.error);
+  await pool.query('UPDATE users SET presence_status = ? WHERE id = ?', [p.data.status, req.user.id]);
+  setStatus(req.user.id, req.user.username, p.data.status);
+  res.json({ status: p.data.status });
+}));
 
 router.patch('/me/profile', requireAuth, wrap(async (req, res) => {
   const p = profileSchema.safeParse(req.body); if (!p.success) return bad(res, p.error);

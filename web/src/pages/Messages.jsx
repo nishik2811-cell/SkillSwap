@@ -3,14 +3,17 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
-import { Alert, Avatar } from '../components/UI.jsx';
+import { Alert, Avatar, STATUS_LABEL } from '../components/UI.jsx';
 import './chat.css';
 
+// "📅 Title / When: … / Join: …/room/<code>" messages (sent by the schedule form) render as a card with a Join button
+const meetingOf = (t) => { const m = /^📅 (.+)\r?\nWhen: (.+)\r?\nJoin: \S+\/room\/([a-z]{3}-[a-z]{4}-[a-z]{3})\s*$/u.exec(t || ''); return m && { title: m[1], when: m[2], code: m[3] }; };
+const nowLocal = () => { const d = new Date(Date.now() + 5 * 60e3); return new Date(d - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16); };
 const linkify = (t) => t.split(/(https?:\/\/\S+)/).map((p, i) => (i % 2 ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{p}</a> : p));
 const hm = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const day = (d) => new Date(d).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
 const size = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-const preview = (m) => !m ? 'No messages yet' : m.deleted ? 'Message deleted' : m.body || (m.attachments.length ? '📎 Attachment' : '');
+const preview = (m) => !m ? 'No messages yet' : m.deleted ? 'Message deleted' : (meetingOf(m.body) ? `📅 ${meetingOf(m.body).title}` : m.body) || (m.attachments.length ? '📎 Attachment' : '');
 
 export default function Messages() {
   const { id } = useParams(); const nav = useNavigate();
@@ -22,7 +25,7 @@ export default function Messages() {
     if (!socket) return;
     const on = (ev, fn) => { socket.on(ev, fn); return () => socket.off(ev, fn); };
     const offs = [on('message', load), on('conversations_changed', load), on('conversation_updated', load),
-      on('presence', (p) => setConvs((l) => l && l.map((c) => (c.with?.username === p.username ? { ...c, with: { ...c.with, online: p.online } } : c))))];
+      on('presence', (p) => setConvs((l) => l && l.map((c) => (c.with?.username === p.username ? { ...c, with: { ...c.with, online: p.online, status: p.status ?? null } } : c))))];
     socket.on('connect', load);
     return () => { offs.forEach((f) => f()); socket.off('connect', load); };
   }, [socket, load]);
@@ -36,7 +39,7 @@ export default function Messages() {
         {convs?.length === 0 && <div className="empty"><p>No conversations yet.</p><p className="hint">Connect with someone, then message them.</p></div>}
         {convs?.map((c) => (
           <Link key={c.id} to={`/messages/${c.id}`} className="conv" aria-current={String(c.id) === id ? 'true' : undefined}>
-            <div style={{ position: 'relative' }}><Avatar user={c.with || { fullName: c.title }} />{c.with?.online && <i className="dot" title="Online" />}</div>
+            <Avatar user={c.with || { fullName: c.title }} status={c.with ? c.with.status ?? null : undefined} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}><b className="clip">{c.type === 'group' ? `👥 ${c.title}` : c.title}</b><span className="hint">{c.lastMessage && hm(c.lastMessage.createdAt)}</span></div>
               <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}><span className="clip hint">{preview(c.lastMessage)}</span>{c.unread > 0 && <span className="badge">{c.unread}</span>}</div>
@@ -107,7 +110,7 @@ function Thread({ id, onGone, onChanged }) {
       message_updated: (m) => { if (m.conversationId !== Number(id)) return; const swap = (l) => l && l.map((x) => (x.id === m.id ? m : x)); setMsgs(swap); setFound(swap); },
       read: (r) => { if (r.conversationId === Number(id)) setInfo((i) => i && { ...i, members: i.members.map((m) => (m.username === r.username ? { ...m, lastReadMessageId: Math.max(m.lastReadMessageId || 0, r.messageId) } : m)) }); },
       typing: (t) => { if (t.conversationId !== Number(id)) return; setTypers((x) => ({ ...x, [t.username]: t.typing ? Date.now() : 0 })); },
-      presence: (p) => setInfo((i) => i && { ...i, members: i.members.map((m) => (m.username === p.username ? { ...m, online: p.online } : m)) }),
+      presence: (p) => setInfo((i) => i && { ...i, members: i.members.map((m) => (m.username === p.username ? { ...m, online: p.online, status: p.status ?? null } : m)) }),
       conversation_updated: (u) => { if (u.id === Number(id)) loadInfo(); },
       conversations_changed: () => loadInfo().catch(() => onGone()),
       connect: () => { loadLatest().catch(() => {}); loadInfo().catch(() => {}); }, // resync after a network drop
@@ -168,10 +171,10 @@ function Thread({ id, onGone, onChanged }) {
           <Link to="/messages" className="btn small ghost back" aria-label="Back to chats">←</Link>
           <Avatar user={direct || { fullName: info.title }} />
           <div><b>{info.type === 'group' ? info.title : <Link to={`/u/${direct?.username}`}>{info.title}</Link>}</b>
-            <div className="hint">{direct ? (direct.online ? <span className="ok">● Online</span> : 'Offline') : `${info.members.length} members`}</div></div>
+            <div className="hint">{direct ? (direct.status ? <span className={`st-${direct.status}`}>● {STATUS_LABEL[direct.status]}</span> : 'Offline') : `${info.members.length} members`}</div></div>
         </div>
         <div className="row" style={{ flexWrap: 'nowrap' }}>
-          <button className="btn small ghost" aria-pressed={q !== null} onClick={() => { setQ(q === null ? '' : null); setFound(null); }}>Search</button>
+          <button className="btn small ghost icon-btn" aria-label="Search this chat" title="Search this chat" aria-pressed={q !== null} onClick={() => { setQ(q === null ? '' : null); setFound(null); }}><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M16 16l4.5 4.5" /></svg></button>
           {info.type === 'group' && <button className="btn small ghost" onClick={() => setShowInfo(!showInfo)}>Members</button>}
         </div>
       </header>
@@ -195,7 +198,7 @@ function Thread({ id, onGone, onChanged }) {
                 {edit?.id === m.id
                   ? <form className="stack" onSubmit={saveEdit}><textarea autoFocus aria-label="Edit message" rows={2} maxLength={4000} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setEdit(null)} />
                     <div className="row"><button className="btn small accent" disabled={!edit.text.trim()}>Save</button><button type="button" className="btn small ghost" onClick={() => setEdit(null)}>Cancel</button></div></form>
-                  : m.body && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{linkify(m.body)}</div>}
+                  : m.body && (meetingOf(m.body) ? (({ title, when, code }) => <div className="meet-card"><span className="mk">Meeting</span><b>{title}</b><span className="mw">{when}</span><Link className="btn small" to={`/room/${code}`}>Join meeting</Link></div>)(meetingOf(m.body)) : <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{linkify(m.body)}</div>)}
                 {m.attachments.map((a) => a.mime.startsWith('image/')
                   ? <a key={a.id} href={a.url} target="_blank" rel="noreferrer"><img className="att-img" src={a.url} alt={a.name} loading="lazy" /></a>
                   : <a key={a.id} className="att" href={a.url} download>📎 {a.name} <span className="hint">{size(a.size)}</span></a>)}</>}
@@ -215,13 +218,19 @@ function Thread({ id, onGone, onChanged }) {
       </div>
       <Alert>{err}</Alert>
       {sched && <form className="panel stack" onSubmit={schedule}><b>Schedule a meeting</b>
-        <input aria-label="Meeting title" placeholder="Title (optional)" maxLength={120} value={sched.title} onChange={(e) => setSched({ ...sched, title: e.target.value })} />
-        <input type="datetime-local" aria-label="Meeting date and time" required value={sched.when} onChange={(e) => setSched({ ...sched, when: e.target.value })} />
+        <label className="field" style={{ margin: 0 }}>Title<input placeholder="e.g. Guitar basics (optional)" maxLength={120} value={sched.title} onChange={(e) => setSched({ ...sched, title: e.target.value })} /></label>
+        <label className="field" style={{ margin: 0 }}>Date and time
+          <div className="when-pick">{/* a readable face over the native picker, which stays on top (invisible) so a click or tap anywhere opens it */}
+            <span className={sched.when ? '' : 'muted'}>{sched.when ? new Date(sched.when).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Choose a date and time'}</span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
+            <input type="datetime-local" aria-label="Meeting date and time" required min={nowLocal()} value={sched.when}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch { /* the native control still opens on tap */ } }} onChange={(e) => setSched({ ...sched, when: e.target.value })} />
+          </div></label>
         <div className="row"><button className="btn small accent" disabled={busy || !sched.when}>Schedule and share</button><button type="button" className="btn small ghost" onClick={() => setSched(null)}>Cancel</button></div></form>}
       <form className="composer" onSubmit={send}>
         {files.length > 0 && <div className="row">{files.map((f, i) => <span key={i} className="chip static">{f.name} <button type="button" className="linkbtn" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>✕</button></span>)}</div>}
         <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-end' }}>
-          <button type="button" className="btn small ghost" aria-label="Schedule a meeting" aria-pressed={!!sched} onClick={() => setSched(sched ? null : { title: '', when: '' })}>📅</button>
+          <button type="button" className="btn small ghost" aria-label="Schedule a meeting" aria-pressed={!!sched} onClick={() => setSched(sched ? null : { title: '', when: '' })}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg></button>
           <label className="btn small ghost" style={{ margin: 0 }} aria-label="Attach files">📎<input type="file" multiple hidden onChange={(e) => setFiles([...files, ...e.target.files].slice(0, 5))} /></label>
           <textarea aria-label="Message" rows={1} maxLength={4000} placeholder="Write a message…" value={text} onChange={(e) => typing(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
@@ -241,7 +250,7 @@ function GroupPanel({ info, me, reload, onLeft }) {
     <Alert>{err}</Alert>
     {admin && <div className="row"><input aria-label="Group name" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1 }} /><button className="btn small" disabled={!title.trim() || title === info.title} onClick={() => run(() => api(`/conversations/${info.id}`, { method: 'PATCH', body: { title } }))}>Rename</button></div>}
     {info.members.map((m) => <div key={m.username} className="row" style={{ justifyContent: 'space-between' }}>
-      <div className="row"><Avatar user={m} /><span><b>{m.fullName}</b> {m.role === 'admin' && <span className="tag mentor">admin</span>} {m.online && <span className="ok">●</span>}</span></div>
+      <div className="row"><Avatar user={m} status={m.status ?? null} /><span><b>{m.fullName}</b> {m.role === 'admin' && <span className="tag mentor">admin</span>}</span></div>
       {admin && m.username !== me && <button className="btn small ghost" onClick={() => window.confirm(`Remove ${m.fullName}?`) && run(() => api(`/conversations/${info.id}/members/${m.username}`, { method: 'DELETE' }))}>Remove</button>}
     </div>)}
     {admin && addable.length > 0 && <div><div className="tag muted">Add from your connections</div><div className="row">{addable.map((u) => <button key={u.username} className="chip" onClick={() => run(() => api(`/conversations/${info.id}/members`, { method: 'POST', body: { usernames: [u.username] } }))}>+ {u.fullName}</button>)}</div></div>}

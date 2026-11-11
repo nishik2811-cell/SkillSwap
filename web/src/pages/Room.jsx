@@ -5,6 +5,7 @@ import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
 import { Alert } from '../components/UI.jsx';
+import InviteConnections from '../components/InviteConnections.jsx';
 
 const ERR = { not_open_yet: 'This room opens 15 minutes before the session starts.', not_allowed: "You don't have access to this room. Paid sessions need a confirmed booking.", meeting_ended: 'This meeting has ended.',
   meetings_not_configured: 'Video meetings are not set up on this server yet.', not_found: 'No meeting with that code.' };
@@ -19,17 +20,6 @@ function Tile({ p, big, hand }) {
     {track && !pub.isMuted ? <video ref={vid} autoPlay playsInline muted={p.isLocal} className={pub.source === Track.Source.ScreenShare ? 'contain' : ''} /> : <div className="noviz">{(p.name || p.identity)[0]}</div>}
     <div className="tag-line">{hand && '✋ '}{p.name || p.identity}{p.isLocal ? ' (you)' : ''}{mic?.isMuted !== false && ' 🔇'}</div>
   </div>;
-}
-
-function Invite({ code }) {
-  const [list, setList] = useState(null); const [pick, setPick] = useState([]); const [msg, setMsg] = useState('');
-  useEffect(() => { api('/connections').then((r) => setList(r.connected)).catch(() => setList([])); }, []);
-  const send = async () => { try { const r = await api(`/rooms/${code}/invite`, { method: 'POST', body: { usernames: pick } }); setMsg(`Invited ${r.sent} ${r.sent === 1 ? 'person' : 'people'}.`); setPick([]); } catch (x) { setMsg(errorText(x)); } };
-  return <details><summary>Invite connections</summary>
-    {!list ? <p className="hint">Loading…</p> : !list.length ? <p className="hint">You have no connections yet.</p> : <>
-      {list.map(({ user }) => <label key={user.username} className="row" style={{ fontWeight: 400 }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={pick.includes(user.username)} onChange={(e) => setPick(e.target.checked ? [...pick, user.username].slice(0, 20) : pick.filter((u) => u !== user.username))} /> {user.fullName}</label>)}
-      <button className="btn small" disabled={!pick.length} onClick={send}>Send invite</button></>}
-    {msg && <p className="hint" role="status">{msg}</p>}</details>;
 }
 
 export default function Room() {
@@ -136,7 +126,7 @@ export default function Room() {
             {staff && !p.isLocal && <span className="row"><button className="btn small ghost" onClick={() => act('mute', { username: p.identity })}>Mute</button>{myRole === 'host' && <button className="btn small ghost" onClick={() => act('cohost', { username: p.identity, cohost: true })}>Co-host</button>}<button className="btn small ghost" onClick={() => window.confirm(`Remove ${p.name || p.identity}?`) && act('remove', { username: p.identity })}>Remove</button></span>}</div>)}
           {staff && <button className="btn small ghost" onClick={() => act('mute')}>Mute everyone</button>}
           <details><summary>Devices</summary>{[['audioinput', 'Microphone'], ['videoinput', 'Camera'], ['audiooutput', 'Speaker']].map(([k, l]) => devs[k].length > 0 && <div key={k} className="field"><label>{l}</label><select onChange={(e) => swap(k, e.target.value)} defaultValue="">{[<option key="" value="" disabled>Choose…</option>, ...devs[k].map((d) => <option key={d.id} value={d.id}>{d.label}</option>)]}</select></div>)}</details>
-          {staff && <Invite code={code} />}
+          {staff && <details><summary>Invite connections</summary><InviteConnections url={`/rooms/${code}/invite`} /></details>}
           <p className="hint">Invite link: {location.origin}/room/{code}</p>
         </div>}
       </aside>}

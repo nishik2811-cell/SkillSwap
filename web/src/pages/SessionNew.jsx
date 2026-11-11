@@ -2,19 +2,20 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, errorText } from '../api.js';
 import { Alert, Field } from '../components/UI.jsx';
+import InviteConnections from '../components/InviteConnections.jsx';
 
 const ERR = { must_be_in_future: 'Pick a start time at least 5 minutes from now.', not_a_mentor_skill: 'Add this skill to your Mentor skills in Settings first.', overlaps_another_session: 'You already have a session at that time (or in one of the repeat weeks).', too_many_sessions: 'That is more upcoming sessions than one account can have (50).' };
 
 export default function SessionNew() {
   const nav = useNavigate(); const [mine, setMine] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const [f, setF] = useState({ title: '', description: '', skillId: '', start: '', durationMin: 60, capacity: 1, pricing: 'free', rupees: '', autoAccept: false, weeks: 1 });
+  const [f, setF] = useState({ title: '', description: '', skillId: '', start: '', durationMin: 60, capacity: 1, pricing: 'free', rupees: '', autoAccept: false, weeks: 1, visibility: 'public', invite: [] });
   useEffect(() => { api('/me/profile').then((p) => { setMine(p.mentorSkills); if (p.mentorSkills[0]) setF((s) => ({ ...s, skillId: p.mentorSkills[0].skillId })); }).catch((x) => setErr(errorText(x))); }, []);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   async function submit(e) {
     e.preventDefault(); setErr(''); setBusy(true);
     try {
       const r = await api('/sessions', { method: 'POST', body: { title: f.title, description: f.description || undefined, skillId: Number(f.skillId), startsAt: new Date(f.start).toISOString(),
-        durationMin: Number(f.durationMin), capacity: Number(f.capacity), pricing: f.pricing, pricePaise: f.pricing === 'paid' ? Math.round(Number(f.rupees) * 100) : undefined, autoAccept: f.autoAccept, weeks: Number(f.weeks) } });
+        durationMin: Number(f.durationMin), capacity: Number(f.capacity), pricing: f.pricing, pricePaise: f.pricing === 'paid' ? Math.round(Number(f.rupees) * 100) : undefined, autoAccept: f.autoAccept, weeks: Number(f.weeks), visibility: f.visibility, invite: f.visibility === 'private' ? f.invite : [] } });
       nav(r.ids.length > 1 ? '/sessions' : `/sessions/${r.id}`);
     } catch (x) { setErr(ERR[x.message] || (x.message === 'invalid_input' ? 'Check the title (3+ characters), time, and price.' : errorText(x))); setBusy(false); }
   }
@@ -32,6 +33,9 @@ export default function SessionNew() {
       <Field id="s-wk" label="Repeat weekly" hint={f.weeks > 1 ? `${f.weeks} sessions, one a week` : 'Just this once'}><select id="s-wk" value={f.weeks} onChange={set('weeks')}>{[1, 2, 3, 4, 6, 8, 12].map((n) => <option key={n} value={n}>{n === 1 ? 'No' : `For ${n} weeks`}</option>)}</select></Field>
       {f.pricing === 'paid' && <Field id="s-ru" label="Price per person (₹)"><input id="s-ru" type="number" min={1} required value={f.rupees} onChange={set('rupees')} /></Field>}
     </div>
+    <Field id="s-vi" label="Who can see it?" hint={f.visibility === 'private' ? 'Only the connections you invite can see and book it.' : 'Anyone on SkillSwap can find it in Sessions.'}>
+      <select id="s-vi" value={f.visibility} onChange={set('visibility')}><option value="public">Public</option><option value="private">Private: invite only</option></select></Field>
+    {f.visibility === 'private' && <div className="field"><label>Invite connections</label><InviteConnections value={f.invite} onChange={(invite) => setF((s) => ({ ...s, invite }))} /></div>}
     <label className="row" style={{ marginBottom: 16, fontWeight: 400 }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={f.autoAccept} onChange={set('autoAccept')} /> Accept bookings automatically until the session is full</label>
     <button className="btn accent" disabled={busy}>{busy ? 'Creating…' : 'Create session'}</button>
   </form></div>;

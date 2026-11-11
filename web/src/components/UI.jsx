@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../api.js';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
@@ -8,9 +9,23 @@ export const Alert = ({ kind = 'err', children }) => children ? <div className={
 export const Field = ({ label, hint, hintKind, children, id }) => (
   <div className="field"><label htmlFor={id}>{label}</label>{children}{hint && <div className={`hint ${hintKind || ''}`} aria-live="polite">{hint}</div>}</div>
 );
-export const Avatar = ({ user, big }) => user?.avatarUrl
-  ? <img className={`avatar ${big ? 'big' : ''}`} src={user.avatarUrl} alt="" loading="lazy" />
-  : <div className={`avatar ${big ? 'big' : ''}`} aria-hidden="true">{(user?.fullName || '?')[0]}</div>;
+export const STATUS_LABEL = { online: 'Online', away: 'Away', busy: 'Do not disturb', invisible: 'Invisible' };
+// status: undefined = no dot; null = offline (grey); otherwise the person's picked status, Discord-style
+export const Avatar = ({ user, big, status }) => {
+  const face = user?.avatarUrl
+    ? <img className={`avatar ${big ? 'big' : ''}`} src={user.avatarUrl} alt="" loading="lazy" />
+    : <div className={`avatar ${big ? 'big' : ''}`} aria-hidden="true">{(user?.fullName || '?')[0]}</div>;
+  if (status === undefined) return face;
+  return <span className="av-wrap">{face}<i className={`sdot ${status || 'offline'}`} title={status ? STATUS_LABEL[status] : 'Offline'} /></span>;
+};
+
+// Your own status, set from the top bar. Others see it next to your name in chats while you're online.
+function StatusPicker() {
+  const { user } = useAuth(); const [s, setS] = useState(user.status || 'online');
+  const change = (v) => { const old = s; setS(v); api('/me/status', { method: 'PATCH', body: { status: v } }).catch(() => setS(old)); };
+  return <label className="status-pick" title={`Your status: ${STATUS_LABEL[s]}`}><i className={`sdot ${s === 'invisible' ? 'offline' : s}`} aria-hidden="true" />
+    <select aria-label="Your status" value={s} onChange={(e) => change(e.target.value)}>{Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>;
+}
 
 export function Nav() {
   const { user, logout } = useAuth(); const social = useSocial();
@@ -30,7 +45,7 @@ export function Nav() {
         <nav className="nav-links" aria-label="Main">
           <NavLink to="/dashboard">Dashboard</NavLink><NavLink to="/discover">Discover</NavLink><NavLink to="/sessions">Sessions</NavLink><NavLink to="/meetings">Meetings</NavLink><NavLink to="/messages">Chats{(social?.chatUnread || 0) > 0 && <span className="badge" aria-label={`${social.chatUnread} unread chats`}>{social.chatUnread}</span>}</NavLink><NavLink to="/connections">People{req > 0 && <span className="badge" aria-label={`${req} requests`}>{req}</span>}</NavLink><NavLink to="/notifications">Alerts{n > 0 && <span className="badge" aria-label={`${n} unread`}>{n}</span>}</NavLink><NavLink to="/settings">Settings</NavLink>
         {user.role === 'admin' && <NavLink to="/admin">Admin</NavLink>}</nav>
-        {themeBtn}<button className="btn ghost small" onClick={logout}>Log out</button>
+        <StatusPicker />{themeBtn}<button className="btn ghost small" onClick={logout}>Log out</button>
       </> : <>
         <span style={{ flex: 1 }} />{themeBtn}<Link className="btn ghost small" to="/login">Log in</Link><Link className="btn small" to="/register">Join</Link>
       </>}

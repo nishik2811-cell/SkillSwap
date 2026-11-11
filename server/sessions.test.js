@@ -190,3 +190,28 @@ test('repeat weekly: creates the series or nothing; calendar file', async () => 
   assert.ok(text.includes(`DTSTART:${new Date(starts[0]).toISOString().replace(/[-:]|\.\d{3}/g, '')}\r\n`));
   assert.equal((await fetch(`${base}/sessions/${r.body.id}/calendar.ics`)).status, 401);
 });
+
+test('private sessions: only invited connections see and book them; live sessions can be joined while running', async () => {
+  const [m, friend, stranger] = await Promise.all([makeUser('pv1'), makeUser('pv2', { mentors: false }), makeUser('pv3', { mentors: false })]);
+  const idOf = async (u) => (await pool.query('SELECT id FROM users WHERE username = ?', [u.username]))[0][0].id;
+  await pool.query("INSERT INTO connections (requester_id, addressee_id, status) VALUES (?,?,'accepted')", [await idOf(m), await idOf(friend)]);
+  const made = await call('/sessions', 'POST', mk({ title: 'Private jam', startsAt: inHours(30), visibility: 'private', invite: [friend.username, stranger.username], capacity: 3, autoAccept: true }), m);
+  assert.equal(made.status, 201); assert.equal(made.body.invited, 1); // the stranger isn't a connection, so is skipped
+  const sid = made.body.id;
+  assert.ok((await notes(friend)).includes('session_invite')); assert.ok(!(await notes(stranger)).includes('session_invite'));
+  const browse = async (u, q = '') => (await call(`/sessions?skillId=${GUITAR}${q}`, 'GET', null, u)).body.sessions.map((s) => s.id);
+  assert.ok((await browse(friend)).includes(sid)); assert.ok(!(await browse(stranger)).includes(sid));
+  assert.equal((await call(`/sessions/${sid}`, 'GET', null, stranger)).status, 404);
+  assert.equal((await call(`/sessions/${sid}/calendar.ics`, 'GET', null, stranger)).status, 404);
+  assert.equal((await call(`/sessions/${sid}/book`, 'POST', {}, stranger)).status, 404);
+  assert.equal((await call(`/sessions/${sid}`, 'GET', null, friend)).body.visibility, 'private');
+  assert.equal((await call(`/sessions/${sid}/book`, 'POST', {}, friend)).body.status, 'confirmed');
+  assert.equal((await call(`/sessions/${sid}/invites`, 'POST', { usernames: [stranger.username] }, friend)).status, 403); // only the mentor invites
+  // live now: once it has started it shows under when=live and can still be joined until it ends
+  const pub = await makeSession(m, { title: 'Open jam', startsAt: inHours(60), capacity: 5, autoAccept: true });
+  await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE) WHERE id = ?', [pub]);
+  assert.ok((await browse(stranger, '&when=live')).includes(pub)); assert.ok(!(await browse(stranger)).includes(pub));
+  assert.equal((await call(`/sessions/${pub}/book`, 'POST', {}, stranger)).body.status, 'confirmed');
+  await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR) WHERE id = ?', [pub]);
+  assert.equal((await call(`/sessions/${pub}/book`, 'POST', {}, friend)).body.error, 'not_bookable'); // over
+});

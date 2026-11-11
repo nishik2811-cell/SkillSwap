@@ -166,6 +166,16 @@ test('realtime: live message, typing relay (members only), read events, presence
   await new Promise((r) => setTimeout(r, 300)); assert.equal(leaked, false);
   const rd = next(sa, 'read'); const m = (await send(id, 'two', a)).body; await call(`/conversations/${id}/read`, 'POST', { messageId: m.id }, b);
   assert.equal((await rd).username, b.username);
+  // status: b picks Busy, a sees it live and in the chat list; Invisible looks offline; nonsense is refused
+  assert.equal(pr.status, 'online');
+  const busy = next(sa, 'presence'); assert.equal((await call('/me/status', 'PATCH', { status: 'busy' }, b)).status, 200);
+  const pb = await busy; assert.equal(pb.online, true); assert.equal(pb.status, 'busy');
+  assert.equal((await call('/conversations', 'GET', null, a)).body.conversations.find((x) => x.id === id).with.status, 'busy');
+  const inv = next(sa, 'presence'); await call('/me/status', 'PATCH', { status: 'invisible' }, b);
+  const pi = await inv; assert.equal(pi.online, false); assert.equal(pi.status, null);
+  assert.equal((await call('/conversations', 'GET', null, a)).body.conversations.find((x) => x.id === id).with.online, false);
+  assert.equal((await call('/me/status', 'PATCH', { status: 'gone' }, b)).status, 400);
+  assert.equal((await call('/auth/me', 'GET', null, b)).body.user.status, 'invisible');
   const off = next(sa, 'presence'); sb.close(); assert.equal((await off).online, false);
   sa.close(); sc.close();
 });
@@ -187,6 +197,7 @@ test('edit, react and search: own live messages only, members only, reactions to
   await call(url + '/reactions', 'POST', { emoji: '👍' }, a);
   assert.deepEqual((await call(url + '/reactions', 'POST', { emoji: '👍' }, b)).body.reactions, [{ emoji: '👍', users: [a.username, b.username] }]);
   assert.deepEqual((await call(url + '/reactions', 'POST', { emoji: '👍' }, a)).body.reactions, [{ emoji: '👍', users: [b.username] }]);
+  assert.deepEqual((await call(url + '/reactions', 'POST', { emoji: '❤️' }, b)).body.reactions, [{ emoji: '❤️', users: [b.username] }]); // a different emoji switches, it doesn't stack
 
   const find = async (q, who = a) => (await call(`/conversations/${id}/messages?q=${encodeURIComponent(q)}`, 'GET', undefined, who));
   assert.deepEqual((await find('WORLD')).body.messages.map((x) => x.id), [m.id]);     // case-insensitive

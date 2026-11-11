@@ -120,3 +120,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: n
 
 /* sign-in style forms: more air between the last field and the main button */
 form.narrow > .btn { margin-top: 14px; }
+
+/* Discord-style status dots */
+.av-wrap { position: relative; display: inline-block; flex: none; line-height: 0; }
+.sdot { position: absolute; right: -2px; top: -2px; width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid var(--paper); background: #80848e; }
+.status-pick .sdot { position: static; display: inline-block; border: 0; width: 10px; height: 10px; }
+.sdot.online { background: #23a55a; } .sdot.away { background: #f0b232; } .sdot.busy { background: #f23f43; } .sdot.offline { background: #80848e; }
+.st-online { color: #23a55a; } .st-away { color: #c99a1f; } .st-busy { color: #f23f43; }
+.status-pick { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 0 10px; min-height: 36px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+.status-pick select { border: 0; background: transparent; color: inherit; font: 400 .72rem var(--font-mono); text-transform: uppercase; letter-spacing: .08em; padding: 0; min-height: 0; width: auto; cursor: pointer; }
+.tag.live { color: #f23f43; border-color: currentColor; margin-left: 6px; } .tag + .tag { margin-left: 6px; }

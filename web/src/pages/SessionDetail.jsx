@@ -4,6 +4,7 @@ import { api, errorText } from '../api.js';
 import { Alert, Avatar } from '../components/UI.jsx';
 import { useSocial } from '../social.jsx';
 import RoomButton from '../components/RoomButton.jsx';
+import InviteConnections from '../components/InviteConnections.jsx';
 import PayButton from '../components/PayButton.jsx';
 import './sessiondetail.css';
 import { when, priceOf, STATUS_TEXT, Stars } from '../components/SessionBits.jsx';
@@ -28,7 +29,7 @@ export default function SessionDetail() {
     <header className="sd-head">
       <div className="sd-date"><b>{String(new Date(s.startsAt).getDate()).padStart(2, '0')}</b><span>{new Date(s.startsAt).toLocaleDateString([], { month: 'short', weekday: 'short' }).toUpperCase()}<br />{new Date(s.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
       <div className="sd-main">
-        <p className="sd-kicker">{s.kind === 'group' ? `Group · ${s.capacity} seats` : 'One-on-one'} · {s.skill} · {s.durationMin} min{s.status !== 'scheduled' ? ` · ${s.status}` : ''}</p>
+        <p className="sd-kicker">{s.visibility === 'private' ? 'Private · ' : ''}{s.kind === 'group' ? `Group · ${s.capacity} seats` : 'One-on-one'} · {s.skill} · {s.durationMin} min{s.status !== 'scheduled' ? ` · ${s.status}` : ''}</p>
         <h1>{s.title}</h1>
         <div className="row sd-mentor"><Avatar user={s.mentor} /><div>with <Link to={`/u/${s.mentor.username}`}><b>{s.mentor.fullName}</b></Link>{s.mentor.rating.count > 0 && <div className="hint">★ {s.mentor.rating.avg.toFixed(1)} · {s.mentor.rating.count} reviews</div>}</div></div>
       </div>
@@ -66,6 +67,9 @@ export default function SessionDetail() {
           {x.status === 'completed' && !x.reviewed && <ReviewForm bookingId={x.id} who={x.learner.fullName} onDone={load} />}
         </div>)}
       </section>
+      {s.status === 'scheduled' && <section className="card stack"><h3>Invite connections</h3>
+        <p className="hint" style={{ marginTop: 0 }}>{s.visibility === 'private' ? 'Only people you invite can see and book this session.' : 'They get a notification with a link to book.'}</p>
+        <InviteConnections url={`/sessions/${s.id}/invites`} /></section>}
       {s.status === 'scheduled' && <section className="card stack"><h3>Manage</h3>
         <RoomButton sessionId={s.id} host />
         <Reschedule s={s} act={act} busy={busy} />

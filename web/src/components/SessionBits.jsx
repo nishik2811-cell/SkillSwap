@@ -17,6 +17,7 @@ export function SessionCard({ s, showMentor = true }) {
   return <article className="card">
     <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
       <div><span className={`tag ${s.kind === 'group' ? 'learner' : 'mentor'}`}>{s.kind === 'group' ? `Group · ${s.capacity} seats` : 'One-on-one'}</span>
+        {new Date(s.startsAt) <= new Date() && s.status === 'scheduled' && <span className="tag live">● Live now</span>}{s.visibility === 'private' && <span className="tag">Private</span>}
         <h3 style={{ margin: '4px 0' }}><Link to={`/sessions/${s.id}`}>{s.title}</Link></h3></div>
       <b>{priceOf(s)}</b>
     </div>

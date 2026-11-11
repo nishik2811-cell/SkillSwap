@@ -194,7 +194,7 @@ router.get('/socket-token', requireAuth, (req, res) => res.json({ token: signSoc
 
 router.get('/me', requireAuth, (req, res) => {
   const u = req.user;
-  res.json({ user: { id: u.id, username: u.username, fullName: u.full_name, email: u.email, role: u.role, onboardingDone: !!u.onboarding_done } });
+  res.json({ user: { id: u.id, username: u.username, fullName: u.full_name, email: u.email, role: u.role, onboardingDone: !!u.onboarding_done, status: u.presence_status } });
 });
 
 router.post('/forgot-password', wrap(async (req, res) => {

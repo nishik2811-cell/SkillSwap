@@ -4,12 +4,12 @@ import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { randomBytes } from 'node:crypto';
 import { mkdir, rename, unlink } from 'node:fs/promises';
-import { pool } from '../db.js';
+import { pool, inTx } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { UPLOAD_DIR } from '../people/routes.js';
 import { keep, forget, load } from '../files.js';
 import { notify } from '../notify.js';
-import { emitToConversation, emitToUser, joinConversation, leaveConversation, isOnline } from '../realtime.js';
+import { emitToConversation, emitToUser, joinConversation, leaveConversation, presenceOf } from '../realtime.js';
 
 export const router = Router();
 router.use(['/conversations', '/attachments'], requireAuth);
@@ -82,7 +82,7 @@ router.get('/conversations', wrap(async (req, res) => {
     const other = c.type === 'direct' ? ms.find((m) => m.id !== me) : null;
     return { id: c.id, type: c.type, title: c.type === 'direct' ? other?.full_name : c.title, unread: c.unread, lastMessage: lastMsgs.get(c.last_id) || null,
       lastMessageAt: c.last_message_at || c.created_at, memberCount: ms.length,
-      with: other ? { ...who(other), online: isOnline(other.id), lastActiveAt: other.last_active_at } : null };
+      with: other ? { ...who(other), online: !!presenceOf(other.id), status: presenceOf(other.id), lastActiveAt: other.last_active_at } : null };
   });
   res.json({ conversations: out, unread: out.reduce((n, c) => n + Number(c.unread), 0) });
 }));
@@ -135,7 +135,7 @@ router.get('/conversations/:id', wrap(async (req, res) => {
   const m = await membership(cid(req), req.user.id); if (!m) return res.status(404).json({ error: 'not_found' });
   const [members] = await pool.query('SELECT m.role, m.last_read_message_id, u.username, u.full_name, u.avatar_path, u.id FROM conversation_members m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ?', [cid(req)]);
   res.json({ id: cid(req), type: m.type, title: m.type === 'group' ? m.title : members.find((x) => x.username !== req.user.username)?.full_name, myRole: m.role,
-    members: members.map((x) => ({ ...who(x), role: x.role, lastReadMessageId: x.last_read_message_id, online: isOnline(x.id) })) });
+    members: members.map((x) => ({ ...who(x), role: x.role, lastReadMessageId: x.last_read_message_id, online: !!presenceOf(x.id), status: presenceOf(x.id) })) });
 }));
 
 router.get('/conversations/:id/messages', wrap(async (req, res) => {
@@ -216,8 +216,12 @@ router.post('/conversations/:id/messages/:mid/reactions', sendLimit, wrap(async 
   if (!(await membership(cid(req), req.user.id))) return res.status(404).json({ error: 'not_found' });
   const [[m]] = await pool.query(`SELECT 1 FROM messages WHERE id = ? AND conversation_id = ? AND ${liveText}`, [mid, cid(req)]);
   if (!m) return res.status(404).json({ error: 'not_found' });
+  // one reaction per person: the same emoji again removes it, a different one replaces it
   const [r] = await pool.query('DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?', [mid, req.user.id, d.data.emoji]);
-  if (!r.affectedRows) await pool.query('INSERT IGNORE INTO message_reactions (message_id, user_id, emoji) VALUES (?,?,?)', [mid, req.user.id, d.data.emoji]);
+  if (!r.affectedRows) await inTx(async (conn) => {
+    await conn.query('DELETE FROM message_reactions WHERE message_id = ? AND user_id = ?', [mid, req.user.id]);
+    await conn.query('INSERT IGNORE INTO message_reactions (message_id, user_id, emoji) VALUES (?,?,?)', [mid, req.user.id, d.data.emoji]);
+  });
   res.json(await broadcastUpdated(mid));
 }));
 

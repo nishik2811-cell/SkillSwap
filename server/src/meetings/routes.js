@@ -6,6 +6,7 @@ import { requireAuth } from '../auth/middleware.js';
 import { notify } from '../notify.js';
 import { emitToUser } from '../realtime.js';
 import * as lk from './livekit.js';
+import { connectedIds } from '../connected.js';
 
 export const router = Router();
 router.use(['/rooms', '/sessions/:id/room'], requireAuth);
@@ -176,11 +177,7 @@ router.post('/rooms/:code/invite', wrap(async (req, res) => {
   const room = await roomByCode(req.params.code); if (!room) throw err(404, 'not_found');
   if (room.status !== 'open') throw err(409, 'meeting_ended');
   if (!isStaff(await myPart(room.id, req.user.id))) throw err(403, 'not_allowed');
-  const [people] = await pool.query(
-    `SELECT u.id FROM users u JOIN connections c ON c.user_lo = LEAST(u.id, ?) AND c.user_hi = GREATEST(u.id, ?) AND c.status = 'accepted'
-     WHERE u.username IN (?) AND u.status = 'active' AND u.id <> ?
-       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = u.id AND b.blocked_id = ?) OR (b.blocker_id = ? AND b.blocked_id = u.id))`,
-    [req.user.id, req.user.id, p.data.usernames, req.user.id, req.user.id, req.user.id]);
+  const people = (await connectedIds(req.user.id, p.data.usernames)).map((id) => ({ id }));
   for (const u of people) await notify(u.id, { type: 'meeting_invite', title: `${req.user.full_name} invited you to "${room.title}"`.slice(0, 160), body: 'Tap to join the meeting.', link: `/room/${room.code}` });
   res.json({ sent: people.length });
 }));

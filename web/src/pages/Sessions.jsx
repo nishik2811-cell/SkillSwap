@@ -16,7 +16,7 @@ export default function Sessions() {
     setData(null); setErr('');
     const p = new URLSearchParams();
     let path;
-    if (tab === 'browse') { for (const k of ['q', 'skillId', 'pricing', 'kind']) if (sp.get(k)) p.set(k, sp.get(k)); path = `/sessions?${p}`; }
+    if (tab === 'browse') { for (const k of ['q', 'skillId', 'pricing', 'kind', 'when']) if (sp.get(k)) p.set(k, sp.get(k)); path = `/sessions?${p}`; }
     else path = `/sessions/mine?role=${tab === 'mentoring' ? 'mentor' : 'learner'}&when=${past ? 'past' : 'upcoming'}`;
     let live = true; api(path).then((d) => live && setData(d.sessions)).catch((x) => live && setErr(errorText(x)));
     return () => { live = false; };
@@ -34,6 +34,7 @@ export default function Sessions() {
     {tab === 'browse' ? <>
       <input className="ss-search" type="search" aria-label="Search sessions" placeholder="Search sessions" value={sp.get('q') || ''} onChange={(e) => set('q', e.target.value)} />
       <div className="ss-bar">
+        <button className="chip" aria-pressed={sp.get('when') === 'live'} onClick={() => toggle('when', 'live')}>● Live now</button>
         <button className="chip" aria-pressed={sp.get('pricing') === 'free'} onClick={() => toggle('pricing', 'free')}>Free</button>
         <button className="chip" aria-pressed={sp.get('pricing') === 'paid'} onClick={() => toggle('pricing', 'paid')}>Paid</button>
         <button className="chip" aria-pressed={sp.get('kind') === 'individual'} onClick={() => toggle('kind', 'individual')}>One-on-one</button>
