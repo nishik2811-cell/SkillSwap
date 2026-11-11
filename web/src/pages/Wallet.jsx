@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, errorText } from '../api.js';
 import { Alert } from '../components/UI.jsx';
 import { rupees } from '../lib.js';
+import { describePayout } from '../components/PayoutMethod.jsx';
 
 const when = (d) => new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 const CHIP = { paid: 'Paid', failed: 'Failed', refunded: 'Refunded', created: 'Unfinished', requested: 'Requested', rejected: 'Rejected', pending: 'Refund pending', processed: 'Refunded' };
@@ -43,11 +44,12 @@ function Payments() {
 function Earnings() {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [ok, setOk] = useState('');
   const [amount, setAmount] = useState(''); const [dest, setDest] = useState(''); const [busy, setBusy] = useState(false);
+  const [pm, setPm] = useState(undefined);
   const load = () => api('/earnings').then(setD).catch((x) => setErr(errorText(x)));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api('/me/payout-method').then((r) => setPm(r.method)).catch(() => setPm(null)); }, []);
   async function request(e) {
     e.preventDefault(); setErr(''); setOk(''); setBusy(true);
-    try { await api('/payouts', { method: 'POST', body: { amountPaise: Math.round(Number(amount) * 100), destination: dest } }); setOk('Payout requested. The SkillSwap team will send it and mark it paid.'); setAmount(''); await load(); }
+    try { await api('/payouts', { method: 'POST', body: { amountPaise: Math.round(Number(amount) * 100), destination: pm ? undefined : dest } }); setOk('Payout requested. The SkillSwap team will send it and mark it paid.'); setAmount(''); await load(); }
     catch (x) { setErr({ insufficient_balance: "That's more than your available balance.", below_minimum: `The minimum payout is ${rupees(d.summary.minPayoutPaise)}.` }[x.message] || errorText(x)); }
     finally { setBusy(false); }
   }
@@ -65,7 +67,9 @@ function Earnings() {
       <h3>Request a payout</h3>
       <div className="filters">
         <div><label htmlFor="po-a">Amount (₹)</label><input id="po-a" type="number" min={s.minPayoutPaise / 100} step="1" required value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-        <div><label htmlFor="po-d">UPI ID or bank reference</label><input id="po-d" required minLength={3} maxLength={120} value={dest} onChange={(e) => setDest(e.target.value)} placeholder="name@upi" /></div>
+        {pm ? <div><label>Paid to</label><p style={{ margin: '10px 0 0' }}><b>{describePayout(pm)}</b> · <Link to="/settings#payout">Change</Link></p></div>
+          : <div><label htmlFor="po-d">UPI ID or bank reference</label><input id="po-d" required minLength={3} maxLength={120} value={dest} onChange={(e) => setDest(e.target.value)} placeholder="name@upi" />
+            <div className="hint">Or <Link to="/settings#payout">save your payout details</Link> once.</div></div>}
       </div>
       <div><button className="btn" disabled={busy || s.balancePaise < s.minPayoutPaise}>{busy ? 'Requesting…' : 'Request payout'}</button> <span className="hint">Minimum {rupees(s.minPayoutPaise)}. Payouts are sent manually by the team.</span></div>
     </form>

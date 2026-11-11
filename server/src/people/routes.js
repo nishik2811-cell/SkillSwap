@@ -94,6 +94,27 @@ async function myProfile(userId) {
 
 router.get('/me/profile', requireAuth, wrap(async (req, res) => res.json(await myProfile(req.user.id))));
 
+// ---- payout method: where a mentor's earnings go (owner only; never part of a profile) ----
+export const payoutMethodOf = async (userId) => {
+  const [[m]] = await pool.query('SELECT * FROM payout_methods WHERE user_id = ?', [userId]);
+  return !m ? null : m.kind === 'upi' ? { kind: 'upi', upiId: m.upi_id } : { kind: 'bank', accountName: m.account_name, accountNumber: m.account_number, ifsc: m.ifsc.trim() };
+};
+const payoutSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('upi'), upiId: z.string().trim().toLowerCase().regex(/^[\w.\-]{2,}@[a-z]{2,}$/, 'Looks like name@bank') }),
+  z.object({ kind: z.literal('bank'), accountName: z.string().trim().min(2).max(100), accountNumber: z.string().trim().regex(/^\d{9,18}$/, '9 to 18 digits'),
+    ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Like SBIN0001234') }),
+]);
+router.get('/me/payout-method', requireAuth, wrap(async (req, res) => res.json({ method: await payoutMethodOf(req.user.id) })));
+router.put('/me/payout-method', requireAuth, wrap(async (req, res) => {
+  const p = payoutSchema.safeParse(req.body); if (!p.success) return bad(res, p.error);
+  const d = p.data, upi = d.kind === 'upi';
+  await pool.query(`INSERT INTO payout_methods (user_id, kind, upi_id, account_name, account_number, ifsc, updated_at) VALUES (?,?,?,?,?,?, NOW())
+    ON CONFLICT (user_id) DO UPDATE SET kind = EXCLUDED.kind, upi_id = EXCLUDED.upi_id, account_name = EXCLUDED.account_name, account_number = EXCLUDED.account_number, ifsc = EXCLUDED.ifsc, updated_at = NOW()`,
+  [req.user.id, d.kind, upi ? d.upiId : null, upi ? null : d.accountName, upi ? null : d.accountNumber, upi ? null : d.ifsc]);
+  res.json({ method: await payoutMethodOf(req.user.id) });
+}));
+router.delete('/me/payout-method', requireAuth, wrap(async (req, res) => { await pool.query('DELETE FROM payout_methods WHERE user_id = ?', [req.user.id]); res.json({ ok: true }); }));
+
 // Discord-style status: what the people you chat with see next to your name while you're connected
 router.patch('/me/status', requireAuth, wrap(async (req, res) => {
   const p = z.object({ status: z.enum(['online', 'away', 'busy', 'invisible']) }).safeParse(req.body); if (!p.success) return bad(res, p.error);

@@ -4,6 +4,7 @@ import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert } from '../components/UI.jsx';
 import CoverPreview from '../components/CoverPreview.jsx';
+import PayoutMethod from '../components/PayoutMethod.jsx';
 import { AboutSection, LearnSection, MentorSection, WhenSection, validatePrefs } from '../components/PrefSections.jsx';
 import { fromProfile, toPayloads } from '../lib.js';
 import './onboarding.css';
@@ -17,7 +18,7 @@ const STEPS = [
 
 export default function Onboarding() {
   const { user, refresh } = useAuth(); const nav = useNavigate();
-  const [f, setF] = useState(null); const [step, setStep] = useState(0); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [f, setF] = useState(null); const [step, setStep] = useState(0); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [payStep, setPayStep] = useState(false);
   useEffect(() => { api('/me/profile').then((p) => setF(fromProfile(p))).catch((x) => setErr(errorText(x))); }, []);
   if (!f) return <div className="center"><Alert>{err}</Alert>{!err && <p>Loading…</p>}</div>;
 
@@ -32,9 +33,22 @@ export default function Onboarding() {
       const { profile, prefs } = toPayloads(f, true);
       await api('/me/profile', { method: 'PATCH', body: profile });
       await api('/me/preferences', { method: 'PUT', body: prefs });
-      await refresh(); nav('/dashboard');
+      setPayStep(true); // record pressed: offer the optional payout step before the dashboard
     } catch (x) { setErr(errorText(x)); } finally { setBusy(false); }
   }
+  const finish = async () => { await refresh(); nav('/dashboard'); };
+  if (payStep) return (
+    <div className="wrap onb">
+      <aside className="onb-cover"><CoverPreview f={f} username={user?.username} /><p className="onb-hint">Your record is pressed.</p></aside>
+      <div className="onb-main">
+        <p className="onb-kicker">Bonus track · optional</p>
+        <h1>Get paid</h1>
+        <p className="onb-lede">Planning to run paid sessions? Tell us where to send your earnings. You can skip this and add it any time in Settings.</p>
+        <PayoutMethod onSaved={finish} />
+        <div className="onb-nav"><span /><button className="btn ghost" onClick={finish}>Skip for now</button></div>
+      </div>
+    </div>
+  );
   const Section = [AboutSection, LearnSection, MentorSection, WhenSection][step];
   return (
     <div className="wrap onb">

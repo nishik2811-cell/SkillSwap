@@ -254,3 +254,20 @@ test('money-safety regressions: concurrent Pay clicks, partial-refund retry amou
   // financial records can't be deleted away from under us
   await assert.rejects(pool.query('DELETE FROM payments WHERE id = ?', [pay.id]), /foreign key/i);
 });
+
+test('payout method: validated, owner only, never on a public profile, used by payout requests', async () => {
+  const [a, b] = await Promise.all([makeUser('pm1'), makeUser('pm2')]);
+  const put = (body, u) => call('/me/payout-method', 'PUT', body, u);
+  assert.equal((await put({ kind: 'upi', upiId: 'not-an-upi' }, a)).status, 400);
+  assert.equal((await put({ kind: 'bank', accountName: 'Mentor One', accountNumber: '12345', ifsc: 'SBIN0001234' }, a)).status, 400); // too short
+  assert.equal((await put({ kind: 'bank', accountName: 'Mentor One', accountNumber: '123456789012', ifsc: 'bad' }, a)).status, 400);
+  assert.deepEqual((await put({ kind: 'bank', accountName: 'Mentor One', accountNumber: '123456789012', ifsc: 'sbin0001234' }, a)).body.method,
+    { kind: 'bank', accountName: 'Mentor One', accountNumber: '123456789012', ifsc: 'SBIN0001234' });
+  assert.deepEqual((await put({ kind: 'upi', upiId: 'Mentor.One@okbank' }, a)).body.method, { kind: 'upi', upiId: 'mentor.one@okbank' }); // switching replaces it
+  assert.equal((await call('/me/payout-method', 'GET', null, b)).body.method, null); // b only ever sees their own
+  assert.ok(!JSON.stringify((await call(`/users/${a.username}`, 'GET', null, b)).body).includes('okbank'));
+  assert.equal((await call('/payouts', 'POST', { amountPaise: 1_000_000 }, b)).body.error, 'no_payout_method');
+  assert.equal((await call('/payouts', 'POST', { amountPaise: 1_000_000 }, a)).body.error, 'insufficient_balance'); // got past the method: it's on file
+  assert.equal((await call('/me/payout-method', 'DELETE', null, a)).status, 200);
+  assert.equal((await call('/me/payout-method', 'GET', null, a)).body.method, null);
+});

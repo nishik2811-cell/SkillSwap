@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { api, errorText } from '../api.js';
 import { Alert, Field } from '../components/UI.jsx';
 import InviteConnections from '../components/InviteConnections.jsx';
+import PayoutMethod from '../components/PayoutMethod.jsx';
 
 const ERR = { must_be_in_future: 'Pick a start time at least 5 minutes from now.', not_a_mentor_skill: 'Add this skill to your Mentor skills in Settings first.', overlaps_another_session: 'You already have a session at that time (or in one of the repeat weeks).', too_many_sessions: 'That is more upcoming sessions than one account can have (50).' };
 
 export default function SessionNew() {
   const nav = useNavigate(); const [mine, setMine] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ title: '', description: '', skillId: '', start: '', durationMin: 60, capacity: 1, pricing: 'free', rupees: '', autoAccept: false, weeks: 1, visibility: 'public', invite: [] });
+  const [pm, setPm] = useState(undefined);
+  useEffect(() => { api('/me/payout-method').then((r) => setPm(r.method)).catch(() => setPm(undefined)); }, []);
   useEffect(() => { api('/me/profile').then((p) => { setMine(p.mentorSkills); if (p.mentorSkills[0]) setF((s) => ({ ...s, skillId: p.mentorSkills[0].skillId })); }).catch((x) => setErr(errorText(x))); }, []);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   async function submit(e) {
@@ -33,6 +36,8 @@ export default function SessionNew() {
       <Field id="s-wk" label="Repeat weekly" hint={f.weeks > 1 ? `${f.weeks} sessions, one a week` : 'Just this once'}><select id="s-wk" value={f.weeks} onChange={set('weeks')}>{[1, 2, 3, 4, 6, 8, 12].map((n) => <option key={n} value={n}>{n === 1 ? 'No' : `For ${n} weeks`}</option>)}</select></Field>
       {f.pricing === 'paid' && <Field id="s-ru" label="Price per person (₹)"><input id="s-ru" type="number" min={1} required value={f.rupees} onChange={set('rupees')} /></Field>}
     </div>
+    {f.pricing === 'paid' && pm === null && <div className="field payout-ask"><label>Where should we send your earnings?</label>
+      <p className="hint" style={{ marginTop: 0 }}>You'll need this before you can be paid. Add it now, or later in Settings.</p><PayoutMethod onSaved={setPm} /></div>}
     <Field id="s-vi" label="Who can see it?" hint={f.visibility === 'private' ? 'Only the connections you invite can see and book it.' : 'Anyone on SkillSwap can find it in Sessions.'}>
       <select id="s-vi" value={f.visibility} onChange={set('visibility')}><option value="public">Public</option><option value="private">Private: invite only</option></select></Field>
     {f.visibility === 'private' && <div className="field"><label>Invite connections</label><InviteConnections value={f.invite} onChange={(invite) => setF((s) => ({ ...s, invite }))} /></div>}

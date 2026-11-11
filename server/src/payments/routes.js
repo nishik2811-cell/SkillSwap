@@ -5,6 +5,7 @@ import { pool } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import * as gw from './razorpay.js';
 import * as pay from './service.js';
+import { payoutMethodOf } from '../people/routes.js';
 
 export const router = Router();
 router.use(['/payments', '/earnings', '/payouts'], requireAuth);
@@ -114,8 +115,14 @@ router.get('/earnings', handle(async (req, res) => {
 }));
 
 router.post('/payouts', limit, handle(async (req, res) => {
-  const p = z.object({ amountPaise: z.number().int().positive().max(100_000_000), destination: z.string().trim().min(3).max(120) }).safeParse(req.body);
+  const p = z.object({ amountPaise: z.number().int().positive().max(100_000_000), destination: z.string().trim().min(3).max(120).optional() }).safeParse(req.body);
   if (!p.success) return bad(res, p.error);
-  const id = await pay.requestPayout(req.user, p.data.amountPaise, p.data.destination);
+  let dest = p.data.destination;
+  if (!dest) { // no one-off destination: send it to the saved payout method, written out so the admin can act on it
+    const m = await payoutMethodOf(req.user.id);
+    if (!m) return res.status(400).json({ error: 'no_payout_method' });
+    dest = m.kind === 'upi' ? `UPI ${m.upiId}` : `Bank · ${m.accountName} · ${m.accountNumber} · ${m.ifsc}`;
+  }
+  const id = await pay.requestPayout(req.user, p.data.amountPaise, dest);
   res.status(201).json({ id });
 }));

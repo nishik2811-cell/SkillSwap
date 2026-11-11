@@ -133,3 +133,5 @@ form.narrow > .btn { margin-top: 14px; }
 /* booking box on a session page */
 .pay-btn { min-width: 200px; } .pay-note { display: flex; align-items: center; gap: 6px; margin: 0; }
 .tag.bk-awaiting_payment, .tag.bk-requested { color: #c99a1f; border-color: currentColor; } .tag.bk-confirmed, .tag.bk-completed { color: #23a55a; border-color: currentColor; }
+.payout-saved { justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-1); }
+.payout-ask { padding: 14px; border: 1px dashed var(--line); border-radius: var(--r-1); }
