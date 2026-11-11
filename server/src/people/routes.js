@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { mkdir, rename, unlink } from 'node:fs/promises';
 import { keep, forget } from '../files.js';
 import { pool } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
-import { setStatus } from '../realtime.js';
+import { setStatus, disconnectUser } from '../realtime.js';
+import rateLimit from 'express-rate-limit';
+import { inTx } from '../db.js';
+import { sha256, newToken, hashPassword } from '../auth/crypto.js';
+import { sendMail, actionMail } from '../auth/mail.js';
+import { earnings } from '../payments/service.js';
 import { scoreCandidate, sortResults, DEFAULT_WEIGHTS } from './ranking.js';
 
 export const router = Router();
@@ -114,6 +119,57 @@ router.put('/me/payout-method', requireAuth, wrap(async (req, res) => {
   res.json({ method: await payoutMethodOf(req.user.id) });
 }));
 router.delete('/me/payout-method', requireAuth, wrap(async (req, res) => { await pool.query('DELETE FROM payout_methods WHERE user_id = ?', [req.user.id]); res.json({ ok: true }); }));
+
+// ---- delete my account: a 6-digit code by email, then the account is anonymised (payment records stay, as the law requires) ----
+const codeHash = (userId, code) => sha256(`${userId}:${code}`); // the user id in the hash keeps a 6-digit space from colliding across people
+const guessLimit = process.env.NODE_ENV === 'test' ? (_q, _s, n) => n() : rateLimit({ windowMs: 15 * 60_000, limit: 5, keyGenerator: (req) => String(req.user?.id), standardHeaders: true, legacyHeaders: false });
+const maskEmail = (e) => e.replace(/^(.)[^@]*(@.*)$/, '$1•••$2');
+
+/** Why this account can't be deleted yet (money or people depend on it), or null. */
+async function deleteBlocker(u) {
+  if (u.role === 'admin') return 'admin_cannot_delete';
+  const [[busy]] = await pool.query(`SELECT 1 x FROM learning_sessions s WHERE s.mentor_id = ? AND s.status = 'scheduled' AND DATE_ADD(s.starts_at, INTERVAL s.duration_min MINUTE) > NOW()
+    AND EXISTS (SELECT 1 FROM bookings b WHERE b.session_id = s.id AND b.status IN ('confirmed','awaiting_payment','requested')) LIMIT 1`, [u.id]);
+  if (busy) return 'has_booked_sessions';
+  const [[mine]] = await pool.query(`SELECT 1 x FROM bookings b JOIN learning_sessions s ON s.id = b.session_id WHERE b.learner_id = ? AND b.status IN ('confirmed','awaiting_payment','requested')
+    AND s.status = 'scheduled' AND DATE_ADD(s.starts_at, INTERVAL s.duration_min MINUTE) > NOW() LIMIT 1`, [u.id]);
+  if (mine) return 'has_upcoming_bookings';
+  const e = await earnings(u.id);
+  if (e.balancePaise > 0 || e.pendingPaise > 0 || e.requestedPaise > 0) return 'has_balance';
+  return null;
+}
+
+router.post('/me/delete/request', requireAuth, guessLimit, wrap(async (req, res) => {
+  const blocker = await deleteBlocker(req.user); if (blocker) return res.status(409).json({ error: blocker });
+  const code = String(randomInt(100000, 1000000));
+  await pool.query("DELETE FROM email_tokens WHERE user_id = ? AND purpose = 'delete_account'", [req.user.id]);
+  await pool.query("INSERT INTO email_tokens (token_hash, user_id, purpose, expires_at) VALUES (?,?, 'delete_account', DATE_ADD(NOW(), INTERVAL 15 MINUTE))", [codeHash(req.user.id, code), req.user.id]);
+  await sendMail({ to: req.user.email, subject: `${code} is your SkillSwap account deletion code`, ...actionMail({
+    name: req.user.full_name, heading: 'Confirm account deletion', code,
+    intro: 'Someone, hopefully you, asked to delete your SkillSwap account. Enter this code in Settings to confirm. It works for 15 minutes.',
+    note: "If you didn't ask for this, ignore this email and your account stays as it is. You may want to change your password." }) });
+  res.json({ ok: true, to: maskEmail(req.user.email) });
+}));
+
+router.post('/me/delete/confirm', requireAuth, guessLimit, wrap(async (req, res) => {
+  const p = z.object({ code: z.string().trim().regex(/^\d{6}$/) }).safeParse(req.body || {}); if (!p.success) return res.status(400).json({ error: 'invalid_code' });
+  const [r] = await pool.query("UPDATE email_tokens SET used_at = NOW() WHERE token_hash = ? AND user_id = ? AND purpose = 'delete_account' AND used_at IS NULL AND expires_at > NOW()",
+    [codeHash(req.user.id, p.data.code), req.user.id]);
+  if (!r.affectedRows) return res.status(400).json({ error: 'invalid_code' });
+  const blocker = await deleteBlocker(req.user); if (blocker) return res.status(409).json({ error: blocker }); // something may have been booked since the code was sent
+  const id = req.user.id;
+  await inTx(async (c) => {
+    await c.query("UPDATE learning_sessions SET status = 'cancelled', cancel_reason = 'The mentor deleted their account' WHERE mentor_id = ? AND status = 'scheduled'", [id]); // only empty ones are left
+    await c.query(`UPDATE users SET status = 'deactivated', email = ?, username = ?, full_name = 'Deleted user', password_hash = ?, avatar_path = NULL, bio = NULL, location = NULL, age = NULL,
+      google_sub = NULL, presence_status = 'invisible', onboarding_done = FALSE WHERE id = ?`, [`deleted-${id}@deleted.invalid`, `deleted_${id}`, hashPassword(newToken()), id]);
+    for (const [t, col] of [['auth_sessions', 'user_id'], ['payout_methods', 'user_id'], ['mentor_skills', 'user_id'], ['learner_skills', 'user_id'], ['availability_slots', 'user_id'],
+      ['user_languages', 'user_id'], ['email_tokens', 'user_id'], ['notifications', 'user_id'], ['session_invites', 'user_id'], ['blocks', 'blocker_id']]) await c.query(`DELETE FROM ${t} WHERE ${col} = ?`, [id]);
+    await c.query('DELETE FROM connections WHERE requester_id = ? OR addressee_id = ?', [id, id]);
+    // chats and messages stay so the other people's history makes sense; they now show "Deleted user"
+  });
+  disconnectUser(id);
+  res.clearCookie('sid', { path: '/' }).json({ ok: true });
+}));
 
 // Discord-style status: what the people you chat with see next to your name while you're connected
 router.patch('/me/status', requireAuth, wrap(async (req, res) => {

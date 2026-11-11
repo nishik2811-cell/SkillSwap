@@ -11,8 +11,8 @@ const Stat = ({ label, value, hint }) => <div className="card"><div className="h
 
 export default function Wallet() {
   const [sp, setSp] = useSearchParams(); const tab = sp.get('tab') || 'payments';
-  return <div className="wrap" style={{ padding: '32px 16px', maxWidth: 900 }}>
-    <h2>Wallet</h2>
+  return <div className="wrap page narrow-page">
+    <header className="page-head"><p className="page-kicker">Money</p><h1>Wallet</h1></header>
     <div className="seg" role="group" aria-label="Wallet sections" style={{ marginBottom: 20 }}>
       <button aria-pressed={tab === 'payments'} onClick={() => setSp({})}>My payments</button>
       <button aria-pressed={tab === 'earnings'} onClick={() => setSp({ tab: 'earnings' })}>My earnings</button>
@@ -57,7 +57,7 @@ function Earnings() {
   const s = d.summary;
   return <div className="stack">
     <Alert>{err}</Alert><Alert kind="ok">{ok}</Alert>
-    <div className="grid">
+    <div className="grid stats">
       <Stat label="Available to withdraw" value={rupees(s.balancePaise)} hint="From sessions you've completed" />
       <Stat label="Coming up" value={rupees(s.pendingPaise)} hint="Paid, session not held yet" />
       <Stat label="Paid out" value={rupees(s.paidOutPaise)} hint={s.requestedPaise ? `${rupees(s.requestedPaise)} requested` : undefined} />
@@ -71,7 +71,8 @@ function Earnings() {
           : <div><label htmlFor="po-d">UPI ID or bank reference</label><input id="po-d" required minLength={3} maxLength={120} value={dest} onChange={(e) => setDest(e.target.value)} placeholder="name@upi" />
             <div className="hint">Or <Link to="/settings#payout">save your payout details</Link> once.</div></div>}
       </div>
-      <div><button className="btn" disabled={busy || s.balancePaise < s.minPayoutPaise}>{busy ? 'Requesting…' : 'Request payout'}</button> <span className="hint">Minimum {rupees(s.minPayoutPaise)}. Payouts are sent manually by the team.</span></div>
+      <div><button className="btn" disabled={busy || s.balancePaise < s.minPayoutPaise}>{busy ? 'Requesting…' : 'Request payout'}</button>
+        <p className="hint" style={{ margin: '10px 0 0' }}>Minimum {rupees(s.minPayoutPaise)}. Payouts are sent by the team, usually within a few working days.</p></div>
     </form>
     <section><h3>Sales</h3>{d.sales.length === 0 && <p className="muted">No paid bookings yet.</p>}
       {d.sales.map((p) => <div key={p.id} className="row" style={{ justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--line)' }}>

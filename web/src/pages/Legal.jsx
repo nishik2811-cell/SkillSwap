@@ -72,7 +72,8 @@ export function Privacy() {
     <h2>Your choices</h2>
     <ul>
       <li>Edit your profile and payout details any time in Settings.</li>
-      <li>To get a copy of your data or delete your account, write to <Mail />. We delete account data within 30 days, except payment records we must keep by law.</li>
+      <li>Delete your account any time from Settings: we email you a code to confirm it. Your profile and personal details are removed straight away; payment records are kept as the law requires.</li>
+      <li>For a copy of your data, write to <Mail />.</li>
     </ul>
     <h2>Cookies</h2>
     <p>We use a single essential cookie to keep you logged in. No advertising or tracking cookies.</p>

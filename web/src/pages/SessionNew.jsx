@@ -4,6 +4,7 @@ import { api, errorText } from '../api.js';
 import { Alert, Field } from '../components/UI.jsx';
 import InviteConnections from '../components/InviteConnections.jsx';
 import PayoutMethod from '../components/PayoutMethod.jsx';
+import WhenPicker from '../components/WhenPicker.jsx';
 
 const ERR = { must_be_in_future: 'Pick a start time at least 5 minutes from now.', not_a_mentor_skill: 'Add this skill to your Mentor skills in Settings first.', overlaps_another_session: 'You already have a session at that time (or in one of the repeat weeks).', too_many_sessions: 'That is more upcoming sessions than one account can have (50).' };
 
@@ -23,13 +24,13 @@ export default function SessionNew() {
     } catch (x) { setErr(ERR[x.message] || (x.message === 'invalid_input' ? 'Check the title (3+ characters), time, and price.' : errorText(x))); setBusy(false); }
   }
   if (mine && !mine.length) return <div className="center"><div className="card narrow stack"><h2>Add a Mentor skill first</h2><p>Sessions are tied to a skill you mentor.</p><a className="btn" href="/settings">Open settings</a></div></div>;
-  return <div className="wrap" style={{ padding: '32px 16px', maxWidth: 640 }}><form className="card" onSubmit={submit}>
+  return <div className="wrap page" style={{ maxWidth: 680 }}><form className="card" onSubmit={submit}>
     <h2>Create a Learning Session</h2><Alert>{err}</Alert>
     <Field id="s-t" label="Title"><input id="s-t" required minLength={3} maxLength={120} value={f.title} onChange={set('title')} placeholder="e.g. Guitar chords for beginners" /></Field>
     <Field id="s-d" label="Description"><textarea id="s-d" rows={3} maxLength={2000} value={f.description} onChange={set('description')} /></Field>
     <div className="filters">
       <Field id="s-sk" label="Skill"><select id="s-sk" value={f.skillId} onChange={set('skillId')}>{mine?.map((m) => <option key={m.skillId} value={m.skillId}>{m.skill}</option>)}</select></Field>
-      <Field id="s-st" label="Starts (your local time)"><input id="s-st" type="datetime-local" required value={f.start} onChange={set('start')} /></Field>
+      <Field id="s-st" label="Starts" hint="Your local time"><WhenPicker id="s-st" placeholder="Pick a time" value={f.start} onChange={(start) => setF((x) => ({ ...x, start }))} /></Field>
       <Field id="s-du" label="Duration (minutes)"><input id="s-du" type="number" min={15} max={480} step={5} required value={f.durationMin} onChange={set('durationMin')} /></Field>
       <Field id="s-ca" label="Seats" hint={f.capacity > 1 ? 'Group session' : 'One-on-one'}><input id="s-ca" type="number" min={1} max={100} required value={f.capacity} onChange={set('capacity')} /></Field>
       <Field id="s-pr" label="Free or paid?"><select id="s-pr" value={f.pricing} onChange={set('pricing')}><option value="free">Free</option><option value="paid">Paid</option></select></Field>

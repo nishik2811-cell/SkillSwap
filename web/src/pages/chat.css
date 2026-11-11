@@ -22,10 +22,9 @@
 .meet-card { display: grid; gap: 4px; min-width: 240px; padding: 6px 4px 10px; text-align: center; }
 .meet-card .mk { font: 400 .66rem var(--font-mono); letter-spacing: .14em; text-transform: uppercase; opacity: .8; margin-bottom: 4px; }
 .meet-card b { font-size: 1.1rem; line-height: 1.3; } .meet-card .mw { font-size: .9rem; opacity: .85; }
-.meet-card .btn { justify-self: center; margin-top: 14px; min-width: 70%; background: var(--paper); color: var(--ink); border-color: var(--paper); }
-.when-pick { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 14px; margin-top: 6px;
-  border: 1px solid var(--line); border-radius: var(--r-1); background: var(--paper); color: var(--ink); font: 400 .95rem var(--font-body, inherit); text-transform: none; letter-spacing: 0; cursor: pointer; }
-.when-pick:focus-within { outline: 2px solid var(--accent, #5b6bff); outline-offset: 2px; } .when-pick .muted { color: var(--ink-2); }
-.when-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.meet-card .btn { justify-self: center; margin-top: 14px; min-width: 70%; background: var(--mentor); color: var(--on-accent, #fff); border-color: var(--mentor); }
+.mine .meet-card .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
 .icon-btn { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; }
 .btn svg { flex: none; } .icon-btn svg { width: 22px; height: 22px; }
+.composer .icon-btn { width: 42px; min-width: 42px; height: 42px; min-height: 42px; border-radius: 50%; }
+.composer textarea { flex: 1; min-width: 0; }

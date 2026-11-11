@@ -5,6 +5,7 @@ import { Alert, Avatar } from '../components/UI.jsx';
 import { useSocial } from '../social.jsx';
 import RoomButton from '../components/RoomButton.jsx';
 import InviteConnections from '../components/InviteConnections.jsx';
+import WhenPicker from '../components/WhenPicker.jsx';
 import PayButton from '../components/PayButton.jsx';
 import './sessiondetail.css';
 import { when, priceOf, STATUS_TEXT, Stars } from '../components/SessionBits.jsx';
@@ -44,7 +45,7 @@ export default function SessionDetail() {
       {b && <div className="row" style={{ gap: 10 }}><b>Your booking</b><span className={`tag bk-${b.status}`}>{STATUS_TEXT[b.status]}</span></div>}
       {(!b || b.status === 'cancelled') && open && s.seatsLeft > 0 && <>
         <input aria-label="Note to the mentor" placeholder="Note to the mentor (optional)" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
-        <div><button className="btn accent" disabled={busy} onClick={() => act(() => api(`/sessions/${id}/book`, { method: 'POST', body: { note } }))}>{s.autoAccept ? (s.pricing === 'free' ? 'Book your seat' : 'Reserve a seat') : 'Request to join'}</button> <span className="hint">{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left{s.autoAccept ? ' · instant booking' : ' · the mentor approves requests'}</span></div></>}
+        <div><button className="btn accent" disabled={busy} onClick={() => act(() => api(`/sessions/${id}/book`, { method: 'POST', body: { note } }))}>{s.autoAccept ? (s.pricing === 'free' ? 'Book your seat' : 'Reserve a seat') : 'Request to join'}</button><p className="hint" style={{ margin: '10px 0 0' }}>{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left{s.autoAccept ? ' · instant booking' : ' · the mentor approves requests'}</p></div></>}
       {(!b || b.status === 'cancelled') && open && s.seatsLeft === 0 && <div className="muted">This session is full.</div>}
       {b?.status === 'confirmed' && s.status === 'scheduled' && <RoomButton sessionId={s.id} />}
       {b?.status === 'awaiting_payment' && open && <PayButton bookingId={b.id} title={s.title} amountPaise={s.pricePaise} onPaid={load} />}
@@ -83,8 +84,10 @@ export default function SessionDetail() {
 
 function Reschedule({ s, act, busy }) {
   const [v, setV] = useState('');
-  return <div className="row"><label htmlFor="rs" style={{ margin: 0 }}>Reschedule to</label><input id="rs" type="datetime-local" value={v} onChange={(e) => setV(e.target.value)} style={{ maxWidth: 240 }} />
-    <button className="btn small" disabled={busy || !v} onClick={() => act(() => api(`/sessions/${s.id}`, { method: 'PATCH', body: { startsAt: new Date(v).toISOString() } }))}>Move</button><span className="hint">Booked learners are notified.</span></div>;
+  return <div className="stack" style={{ gap: 8 }}><label htmlFor="rs" style={{ margin: 0 }}>Reschedule to</label>
+    <div className="row" style={{ flexWrap: 'nowrap' }}><div style={{ flex: 1, maxWidth: 300 }}><WhenPicker id="rs" placeholder="Pick a new time" value={v} onChange={setV} required={false} /></div>
+      <button className="btn small" disabled={busy || !v} onClick={() => act(() => api(`/sessions/${s.id}`, { method: 'PATCH', body: { startsAt: new Date(v).toISOString() } }))}>Move</button></div>
+    <p className="hint" style={{ margin: 0 }}>Booked learners are notified.</p></div>;
 }
 
 function ReviewForm({ bookingId, who, onDone }) {

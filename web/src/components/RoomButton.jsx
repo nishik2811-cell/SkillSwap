@@ -11,5 +11,5 @@ export default function RoomButton({ sessionId, host }) {
     try { const r = await api(`/sessions/${sessionId}/room`, { method: 'POST', body: {} }); nav(`/room/${r.code}`); }
     catch (x) { setErr(errorText(x)); setBusy(false); }
   }
-  return <div><Alert>{err}</Alert><button className="btn accent" disabled={busy} onClick={go}>{host ? 'Open meeting room' : 'Join meeting room'}</button><span className="hint"> Opens 15 minutes before the start.</span></div>;
+  return <div><Alert>{err}</Alert><button className="btn accent" disabled={busy} onClick={go}>{host ? 'Open meeting room' : 'Join meeting room'}</button><p className="hint" style={{ margin: '10px 0 0' }}>The room opens 15 minutes before the start.</p></div>;
 }

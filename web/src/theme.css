@@ -69,3 +69,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--mentor); }
   .chat { height: calc(100dvh - 104px); }
 }
 @media (max-width: 760px) { .theme-pill { font-size: 0; gap: 0; padding: 11px 12px; } }
+
+/* phone top bar: one row of controls (logo, status dot, theme, log out), then the links */
+.logout-btn .lo-icon { display: none; }
+@media (max-width: 760px) {
+  .logout-btn { width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; }
+  .logout-btn .lo-text { display: none; } .logout-btn .lo-icon { display: block; }
+  .status-pick { position: relative; width: 40px; height: 40px; min-height: 40px; padding: 0; justify-content: center; }
+  .status-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+  .status-pick .sdot { width: 12px; height: 12px; }
+  .nav .wrap { column-gap: 8px; }
+}
+
+/* a checkbox with a sentence next to it reads as text, not as a field label */
+label.row { font-family: var(--font-ui); text-transform: none; letter-spacing: 0; font-size: .95rem; color: var(--ink); flex-wrap: nowrap; gap: 10px; align-items: center; margin: 0; }
+label.row input[type='checkbox'] { flex: none; accent-color: var(--mentor); }
+/* two cards side by side fill the row instead of leaving an empty third column */
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.grid.stats { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+@media (max-width: 480px) { .grid.stats { grid-template-columns: 1fr 1fr; gap: 10px; } }
+
+/* empty states sit with the page (left, in a quiet dashed box) instead of floating in the middle */
+.empty { margin-top: var(--s-4); text-align: left; padding: 28px 24px; border: 1px dashed var(--line); border-radius: var(--r-2); color: var(--ink-2); }
+.empty h3 { color: var(--ink); margin: 0 0 6px; } .empty p { margin: 0 0 6px; } .empty > :last-child { margin-bottom: 0; } .empty .btn { margin-top: 10px; }
+.chat .empty { text-align: center; border: 0; }

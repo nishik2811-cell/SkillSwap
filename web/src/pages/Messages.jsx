@@ -4,11 +4,11 @@ import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
 import { Alert, Avatar, STATUS_LABEL } from '../components/UI.jsx';
+import WhenPicker from '../components/WhenPicker.jsx';
 import './chat.css';
 
 // "📅 Title / When: … / Join: …/room/<code>" messages (sent by the schedule form) render as a card with a Join button
 const meetingOf = (t) => { const m = /^📅 (.+)\r?\nWhen: (.+)\r?\nJoin: \S+\/room\/([a-z]{3}-[a-z]{4}-[a-z]{3})\s*$/u.exec(t || ''); return m && { title: m[1], when: m[2], code: m[3] }; };
-const nowLocal = () => { const d = new Date(Date.now() + 5 * 60e3); return new Date(d - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16); };
 const linkify = (t) => t.split(/(https?:\/\/\S+)/).map((p, i) => (i % 2 ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{p}</a> : p));
 const hm = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const day = (d) => new Date(d).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
@@ -220,19 +220,14 @@ function Thread({ id, onGone, onChanged }) {
       {sched && <form className="panel stack" onSubmit={schedule}><b>Schedule a meeting</b>
         <label className="field" style={{ margin: 0 }}>Title<input placeholder="e.g. Guitar basics (optional)" maxLength={120} value={sched.title} onChange={(e) => setSched({ ...sched, title: e.target.value })} /></label>
         <label className="field" style={{ margin: 0 }}>Date and time
-          <div className="when-pick">{/* a readable face over the native picker, which stays on top (invisible) so a click or tap anywhere opens it */}
-            <span className={sched.when ? '' : 'muted'}>{sched.when ? new Date(sched.when).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Choose a date and time'}</span>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
-            <input type="datetime-local" aria-label="Meeting date and time" required min={nowLocal()} value={sched.when}
-              onClick={(e) => { try { e.currentTarget.showPicker(); } catch { /* the native control still opens on tap */ } }} onChange={(e) => setSched({ ...sched, when: e.target.value })} />
-          </div></label>
+          <WhenPicker value={sched.when} onChange={(when) => setSched({ ...sched, when })} /></label>
         <div className="row"><button className="btn small accent" disabled={busy || !sched.when}>Schedule and share</button><button type="button" className="btn small ghost" onClick={() => setSched(null)}>Cancel</button></div></form>}
       <form className="composer" onSubmit={send}>
         {files.length > 0 && <div className="row">{files.map((f, i) => <span key={i} className="chip static">{f.name} <button type="button" className="linkbtn" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>✕</button></span>)}</div>}
         <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-end' }}>
-          <button type="button" className="btn small ghost" aria-label="Schedule a meeting" aria-pressed={!!sched} onClick={() => setSched(sched ? null : { title: '', when: '' })}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg></button>
-          <label className="btn small ghost" style={{ margin: 0 }} aria-label="Attach files">📎<input type="file" multiple hidden onChange={(e) => setFiles([...files, ...e.target.files].slice(0, 5))} /></label>
-          <textarea aria-label="Message" rows={1} maxLength={4000} placeholder="Write a message…" value={text} onChange={(e) => typing(e.target.value)}
+          <button type="button" className="btn small ghost icon-btn" aria-label="Schedule a meeting" title="Schedule a meeting" aria-pressed={!!sched} onClick={() => setSched(sched ? null : { title: '', when: '' })}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg></button>
+          <label className="btn small ghost icon-btn" style={{ margin: 0 }} aria-label="Attach files" title="Attach files"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" /></svg><input type="file" multiple hidden onChange={(e) => setFiles([...files, ...e.target.files].slice(0, 5))} /></label>
+          <textarea aria-label="Message" rows={1} maxLength={4000} placeholder="Message…" value={text} onChange={(e) => typing(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button className="btn small accent" disabled={busy || (!text.trim() && !files.length)}>{busy ? '…' : 'Send'}</button>
         </div>

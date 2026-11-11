@@ -9,8 +9,8 @@ export default function Connections() {
   const act = async (path, method = 'POST') => { setErr(''); try { await api(path, { method, body: method === 'POST' ? {} : undefined }); await refreshConnections(); } catch (x) { setErr(errorText(x)); } };
   const tabs = [['received', 'Requests for you'], ['sent', 'Sent by you'], ['connected', 'Connections']];
   const rows = conn[tab];
-  return <div className="wrap" style={{ padding: '32px 16px', maxWidth: 800 }}>
-    <h2>Connections</h2>
+  return <div className="wrap page narrow-page">
+    <header className="page-head"><p className="page-kicker">Your people</p><h1>Connections</h1></header>
     <div className="seg" role="group" aria-label="Connection lists">{tabs.map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l} ({conn[k].length})</button>)}</div>
     <Alert>{err}</Alert>
     {rows.length === 0 && <div className="empty"><p>{tab === 'received' ? 'No pending requests.' : tab === 'sent' ? "You haven't sent any requests." : 'No connections yet.'}</p><Link className="btn small" to="/discover">Find people</Link></div>}

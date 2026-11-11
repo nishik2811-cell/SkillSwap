@@ -215,3 +215,26 @@ test('private sessions: only invited connections see and book them; live session
   await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR) WHERE id = ?', [pub]);
   assert.equal((await call(`/sessions/${pub}/book`, 'POST', {}, friend)).body.error, 'not_bookable'); // over
 });
+
+test('delete account: code by email, wrong code refused, blocked while booked, then anonymised and re-registrable', async () => {
+  const [m, l] = await Promise.all([makeUser('da1'), makeUser('da2', { mentors: false })]);
+  const codeFor = (u) => sent.filter((x) => x.to === u.email && /deletion code/.test(x.subject)).at(-1)?.text.match(/\b(\d{6})\b/)?.[1];
+  // l has a confirmed seat in m's upcoming session: neither can delete yet
+  const sid = await makeSession(m, { title: 'Before goodbye', startsAt: inHours(40), autoAccept: true });
+  assert.equal((await call(`/sessions/${sid}/book`, 'POST', {}, l)).body.status, 'confirmed');
+  assert.equal((await call('/me/delete/request', 'POST', {}, l)).body.error, 'has_upcoming_bookings');
+  assert.equal((await call('/me/delete/request', 'POST', {}, m)).body.error, 'has_booked_sessions');
+  await call(`/sessions/${sid}/cancel`, 'POST', { reason: 'test' }, m);
+  // now l can: request a code, a wrong one fails, the right one deletes
+  const req = await call('/me/delete/request', 'POST', {}, l); assert.equal(req.status, 200); assert.match(req.body.to, /•••@/);
+  const code = codeFor(l); assert.ok(code);
+  assert.equal((await call('/me/delete/confirm', 'POST', { code: code === '123456' ? '654321' : '123456' }, l)).body.error, 'invalid_code');
+  assert.equal((await call('/me/delete/confirm', 'POST', { code }, l)).status, 200);
+  assert.equal((await call('/me/delete/confirm', 'POST', { code }, l)).status, 401); // signed out everywhere
+  const login = await fetch(base + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: l.email, password: l.password }) });
+  assert.equal(login.status, 401);
+  assert.equal((await call(`/users/${l.username}`, 'GET', null, m)).status, 404);
+  // the email is free again
+  const again = await call('/auth/register', 'POST', { email: l.email, username: `r${l.username}`.slice(0, 20), password: 'correct horse 1', fullName: 'Back again' });
+  assert.equal(again.status, 201);
+});
