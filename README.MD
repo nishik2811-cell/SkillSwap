@@ -1,159 +1,161 @@
 # SkillSwap
 
-**Teach what you know. Learn what you don't.**
+**Teach one thing. Learn another.**
 
-SkillSwap is a peer-to-peer skill exchange. Everyone is both a **Mentor** (what they can teach) and a **Learner** (what they want to learn), and chooses how value moves: free, paid, or a straight swap. Find people with a ranked **Best Match** list, connect, chat, book a **Learning Session**, pay, and meet in a built-in **Meeting Room** with screen sharing.
+SkillSwap is a place where people trade what they know. You list the skills you can teach and the ones you want to learn, and SkillSwap finds the people who fit: someone who teaches what you want, and wants what you teach. You meet them, agree how it works (free, paid, or skill for skill) and learn together in a built-in video room.
 
-**Live:** https://skillswap-eight-chi.vercel.app (the API runs on a free tier and sleeps when idle, so the first request after a quiet spell can take about a minute)
+**Try it:** [skillswap-eight-chi.vercel.app](https://skillswap-eight-chi.vercel.app)
+<sub>The server sleeps on a free plan, so the first visit after a quiet spell can take about a minute to wake up.</sub>
 
-![Node 22+](https://img.shields.io/badge/node-22%2B-3c873a) ![PostgreSQL 14+](https://img.shields.io/badge/postgresql-14%2B-336791) ![Tests 58](https://img.shields.io/badge/tests-59%20passing-2ea44f)
+![The SkillSwap landing page: a spinning vinyl record with the line "Teach one thing. Learn another."](docs/screenshots/landing.png)
 
-## Contents
+---
 
-[Features](#features) · [Tech stack](#tech-stack) · [Quick start](#quick-start) · [Configuration](#configuration) · [Scripts](#scripts) · [How it works](#how-it-works) · [Project layout](#project-layout) · [Testing](#testing) · [Deployment](#deployment) · [Status and limits](#status-and-limits)
+## Why SkillSwap
+
+Most people are good at something and want to get better at something else. A guitarist wants to learn Python; a developer wants to learn guitar. Paying a tutor isn't always possible, and asking a stranger for free lessons feels one-sided.
+
+SkillSwap makes it a fair exchange:
+
+- **Everyone is both a Mentor and a Learner.** Your profile has two sides: what you teach and what you want to learn.
+- **You choose how value moves.** Teach for free, charge for your time, or swap skill for skill.
+- **Matches come with reasons.** Instead of a popularity contest, every person gets a compatibility score that explains itself: same skill, right level, fits your budget, free at the same times, speaks your language.
+
+## How a swap goes
+
+![The "How it works" section: a cassette tape next to step 3, "Get ranked matches"](docs/screenshots/how-it-works.png)
+
+1. **Say what you can teach.** Pick your skills and whether you teach for free, for pay, or as a swap.
+2. **Say what you want to learn.** Add your level, budget, languages and when you're free.
+3. **Get ranked matches.** Every person gets a score with the reasons shown.
+4. **Connect and talk.** Send a request, then chat one-to-one or in groups.
+5. **Book and meet.** Book a session, pay securely if it's paid, and join the video room.
+6. **Review and repeat.** Rate each other afterwards, then swap roles.
+
+---
 
 ## Features
 
-| Area | What it does |
+### Find the right people
+
+![Discover: mentors shown as album covers, each with a match percentage](docs/screenshots/discover.png)
+
+- **Best Match ranking** weighs skill fit, level, price, time-zone overlap, language, teaching style, ratings and how complete a profile is. Each card shows why it matched.
+- **Filters and search** by skill, free or paid, language, day and rating, with 227 skills in 14 categories.
+- **People show up as album covers**, so a page of matches feels like a record shop rather than a spreadsheet.
+
+### Profiles that read like liner notes
+
+![A profile: an album cover on the left, and on the right the skills taught with prices, skills wanted, free days and languages](docs/screenshots/profile.png)
+
+- **Side A** lists what someone teaches, with level, experience and price. **Side B** lists what they want to learn.
+- Availability, languages and two-way reviews (as a Mentor and as a Learner) build trust.
+- **Connect, message, block or report** straight from the profile.
+
+### Learning sessions
+
+![Learning sessions: a list of upcoming sessions with date, title, mentor, price and seats left](docs/screenshots/sessions.png)
+
+- **One-on-one or group** sessions, with seat limits that can't be overbooked.
+- **Public or private.** Private sessions are invite-only: pick connections to invite and they get a notification.
+- **Instant booking or approval**, **weekly repeats** (up to 12 weeks) and an **add to calendar** file.
+- **Live now** shows sessions already underway that you can still join.
+- Reminders, rescheduling and cancellations, with automatic refunds where the policy says so.
+
+### Chat and meet
+
+![A chat: a scheduled meeting shown as a card with a Join meeting button](docs/screenshots/chat.png)
+
+- **Direct and group chats** with read receipts, typing indicators, attachments, edits, emoji reactions and search.
+- **Status dots** like Discord: set yourself to Online, Away, Do not disturb or Invisible.
+- **Schedule a meeting from any chat.** It posts a card with a **Join meeting** button.
+- **Built-in video rooms** with screen sharing, a waiting room, host and co-host controls, hand raising, in-room chat, and invites for your connections.
+
+### Payments and earnings
+
+- **Secure checkout with Razorpay** (cards, UPI, netbanking). SkillSwap never sees card details.
+- **Fair refunds, automatically.** Cancel 24 hours or more before a session for a full refund, and you're always refunded if the Mentor cancels. Disputes go to a person.
+- **Mentors get paid out** to the UPI ID or bank account they save in Settings. Receipts and earnings live in the Wallet.
+
+### Accounts and safety
+
+- Sign up with email (verified) or **continue with Google**, then pick a unique User ID.
+- Block and report, admin review of reports and disputes, and suspensions that take effect at once.
+- **Delete your account** from Settings, confirmed with a code sent to your email.
+- Clear [Terms](https://skillswap-eight-chi.vercel.app/terms), [Privacy](https://skillswap-eight-chi.vercel.app/privacy) and [Refund](https://skillswap-eight-chi.vercel.app/refunds) pages.
+
+### Built for phones too
+
+<p align="center">
+  <img src="docs/screenshots/phone-landing.png" width="260" alt="The landing page on a phone">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/phone-discover.png" width="260" alt="Discover on a phone">
+</p>
+
+Every page works on a phone, in light and dark themes. Screen sharing is the one desktop-only feature, because phone browsers don't support it.
+
+---
+
+## Built with
+
+| | |
 |---|---|
-| **Accounts** | Register or **continue with Google**, email verification, log in by email or user ID, password reset, four-step onboarding, public profile at `/u/<id>` |
-| **Discover** | Best Match ranking by default (skill fit, level, price, time-zone availability, language, teaching style, rating, profile completeness). Filters and other sorts. Weights are editable by an admin |
-| **Connections** | Requests, accept or decline, block, report. Live notifications |
-| **Chat** | Direct and group chats, read receipts, typing, presence, attachments, edit your own messages, emoji reactions, search within a chat, and **schedule a meeting** straight from a conversation |
-| **Sessions** | One-on-one and group Learning Sessions, capacity enforced under a row lock, approval or instant booking, weekly repeat (up to 12 weeks), add-to-calendar file, cancel and reschedule, reminders, two-way reviews that feed ratings |
-| **Payments** | Razorpay checkout, signature-verified webhooks, refund policy, receipts, mentor earnings and payout requests |
-| **Meeting Rooms** | Video, audio, screen share, waiting room, host and co-host controls, hand raise, in-room chat, and **invite your connections** from inside the room (LiveKit) |
-| **Admin** | Overview and charts, people, reports, payments and refunds, disputes, payouts, skills, platform settings and ranking weights, audit log |
-| **Landing page** | A WebGL ray-traced vinyl record: scrolling flies a camera into a groove, pulls back and flips to Side B, then a cassette timeline explains how a swap goes. Falls back to a CSS record without WebGL2, and respects reduced-motion |
+| **Website** | React 19 and Vite, plain CSS, a WebGL record on the landing page |
+| **Server** | Node 22, Express, Socket.IO for live chat and presence |
+| **Database** | PostgreSQL (Neon in production) |
+| **Video** | LiveKit |
+| **Payments** | Razorpay |
+| **Email** | Any SMTP service (Brevo in production) |
+| **Hosting** | Vercel (website), Render (server), Neon (database), all on free plans |
 
-Light and dark themes, and a layout that works on phones (screen sharing is a desktop-browser feature).
+A few choices worth knowing:
 
-## Tech stack
+- **Money is handled carefully.** Amounts are stored in paise, every booking, payment and refund runs in a database transaction, and Razorpay webhooks are signature-checked and safe to receive twice.
+- **Logins are server-side sessions** (an httpOnly cookie), so a suspended account is signed out immediately.
+- **Everything privileged is checked on the server**, not just hidden in the interface.
 
-- **Server:** Node 22, Express, PostgreSQL (`pg`), Socket.IO, Zod, Nodemailer, Multer
-- **Web:** React 19, Vite, React Router, plain CSS
-- **Video:** LiveKit (LiveKit Cloud in production, `livekit-server --dev` locally)
-- **Payments:** Razorpay (use **test** keys while building)
-- **Email:** any SMTP service (Brevo has a free plan)
-- **Hosting (free):** Vercel (web) + Render (API) + Neon (database). See [DEPLOY.md](DEPLOY.md)
+## Run it on your computer
 
-## Quick start
-
-You need Node 22+, PostgreSQL 14+ (the `citext` extension ships with it) and, for video rooms, a LiveKit server.
+You need **Node 22+** and **PostgreSQL 14+**. For video rooms you also need a LiveKit server (`livekit-server --dev` works locally).
 
 ```bash
-git clone <this repo> && cd SkillSwap
 npm install
-cp .env.example .env     # then set DATABASE_URL and JWT_SECRET (see Configuration)
-npm run migrate          # creates the tables and the skill catalogue
-npm run seed             # optional: 10 demo people and 6 sessions (never on a real site)
-npm run dev              # API on :4000, web on :5173
+cp .env.example .env      # set DATABASE_URL and JWT_SECRET
+npm run migrate           # creates the tables and the skill catalogue
+npm run seed              # optional: 10 demo people and 6 sessions
+npm run dev               # website on :5173, server on :4000
 ```
 
-Open http://localhost:5173. With no SMTP configured, emails (verification, password reset) are printed in the API console instead of being sent. Demo accounts from `npm run seed` share the password printed at the end of the seed run.
+Open http://localhost:5173. Without email settings, verification and password-reset emails are printed in the server console instead of sent. All variables are explained in [`.env.example`](.env.example).
 
-**Video rooms locally:** run `livekit-server --dev` and set `LIVEKIT_URL=ws://127.0.0.1:7880`, `LIVEKIT_API_KEY=devkey` and its matching secret. Those dev keys are public defaults: never use them on a real server.
-
-**Your first admin:** register, verify, then:
-
-```bash
-npm run make-admin -w server -- <your-id>
-```
-
-An **Admin** link then appears in the top bar.
-
-## Configuration
-
-Copy `.env.example` to `.env`. Never commit `.env`, and never put secrets in source files or in the web app: the Razorpay key secret and every server credential stay on the server.
-
-| Variable | Needed | Notes |
-|---|---|---|
-| `DATABASE_URL` | yes | `postgresql://user:pass@host/db`. On Neon, use the string with `?sslmode=require` |
-| `JWT_SECRET` | yes | 16+ characters. Signs the short-lived live-socket token |
-| `WEB_ORIGIN` | in production | Your site's URL with no trailing slash: used for CORS and links in emails |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | for real email | `MAIL_FROM` must be a sender your SMTP service has verified, or mail is silently dropped |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | for paid sessions | Webhook URL: `https://<api-host>/api/v1/webhooks/razorpay` |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for "Continue with Google" | Optional. Leave blank and the button is hidden. Setup in [DEPLOY.md](DEPLOY.md) |
-| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | for Meeting Rooms | `LIVEKIT_URL` is the `wss://…` address; key and secret must be from the same LiveKit project |
-| `FILE_STORE=db` | on hosts with an ephemeral disk | Also keeps avatars and attachments in Postgres |
-| `UPLOAD_DIR`, `TRUST_PROXY` | optional | Upload folder, and how many proxies sit in front of the API |
-
-## Scripts
+To make yourself an admin, register, then run `npm run make-admin -w server -- <your-user-id>`.
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | API and web together, with reload |
-| `npm test` | Server test suite (needs `DATABASE_URL` for a scratch database and a LiveKit server on 7880) |
-| `npm run migrate` | Applies `server/migrations/*.sql` in order, once each (also runs on API startup) |
-| `npm run seed` | Demo data. Re-runnable. Refuses to run with `NODE_ENV=production` |
-| `npm run make-admin -w server -- <id>` | Makes an existing account an admin |
-| `npm run build -w web` | Production build of the site into `web/dist` |
+| `npm run dev` | Website and server together, reloading on changes |
+| `npm test` | 62 server tests against a real database |
+| `npm run migrate` | Applies new database changes (also runs when the server starts) |
+| `npm run seed` | Adds demo data (refuses to run in production) |
+| `npm run build -w web` | Builds the website for production |
 
-## How it works
+## Deploy your own
 
-```
-Browser ──► Vercel (React site)
-              ├─ /api/*, /uploads/*  ── rewrite ──►  Render (Express + Socket.IO + jobs) ──► Neon (PostgreSQL)
-              └─ everything else → index.html
-Browser ──► wss://API       live chat and notifications (short-lived signed token)
-Browser ──► LiveKit         video rooms           Razorpay ──► API webhook
-```
-
-Design choices worth knowing:
-
-- **Sessions, not JWT.** Login sets an httpOnly cookie that maps to a server-side session, so a suspended person is signed out immediately. A signed token authenticates the live socket across origins.
-- **Money is careful.** Amounts are integers in paise. Booking a seat, taking a payment and refunding all run in transactions with row locks. Razorpay webhooks are idempotent, and a lost refund reply is safe to retry.
-- **Ranking is explainable.** Each Best Match card lists its reasons. Missing data is skipped rather than penalised, and the weights live in the database.
-- **Everything privileged is checked on the server.** The Admin page hides itself from other people, but every `/admin` call checks the role again.
-- **Auth endpoints don't leak accounts.** Forgot-password and resend-verification answer the same way whether or not the account exists.
+Step by step for the free stack (Vercel, Render and Neon, plus Razorpay, LiveKit and Google sign-in) in **[DEPLOY.md](DEPLOY.md)**.
 
 ## Project layout
 
 ```
-server/
-  src/
-    app.js, index.js     Express app, HTTP + Socket.IO server, background jobs
-    db.js                PostgreSQL pool, transactions with deadlock retry
-    auth/ people/ social/ chat/ sessions/ payments/ meetings/ admin/    one folder per area
-    people/ranking.js    Best Match scoring
-    files.js             durable upload store (FILE_STORE=db)
-  migrations/            SQL schema and seed catalogue
-  scripts/               seed and make-admin
-web/src/
-  pages/                 one file per screen (plus its CSS)
-  components/            shared UI; Record3D is the landing record, CassetteTimeline the how-it-works tape
-render.yaml              Render blueprint for the API
-web/vercel.json          Vercel rewrites to the API
-DEPLOY.md  CHECKLIST.md  hosting steps, and what is built and what still needs a manual check
+server/src/   auth, people, social, chat, sessions, payments, meetings, admin: one folder per area
+server/migrations/   database changes, applied in order
+web/src/pages/   one file per screen
+web/src/components/   shared pieces: album-cover cards, pickers, the landing record
+docs/screenshots/   the images in this README
 ```
 
-## Testing
+## Status
 
-`npm test` runs 59 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access and invites, admin, and durable uploads. Meeting-room tests also call a real LiveKit server.
-
-## Deployment
-
-The free stack (Vercel + Render + Neon) is described step by step in [DEPLOY.md](DEPLOY.md): the database string, Render environment variables, the Vercel root directory, the first admin and the Razorpay webhook. Pushing to `main` redeploys both hosts.
-
-## Status and limits
-
-Built and tested: everything in the feature table above, against local PostgreSQL and LiveKit.
-
-Still needs a manual check on the live site (see [CHECKLIST.md](CHECKLIST.md)):
-
-- A real Razorpay payment, webhook and refund (payments are tested against a fake gateway only)
-- A two-person video call and screen share on production
-- Email delivery to a real inbox
-
-Known limits:
-
-- One API instance: presence and job timers are held in memory.
-- Free hosting sleeps when idle, so reminders only run while the API is awake.
-- Uploads are kept in Postgres when `FILE_STORE=db`, which suits avatars and small attachments, not large media.
-- Payouts to mentors are sent by an admin by hand, then marked paid.
-- Screen sharing is not available in phone browsers.
-- Scheduled meetings send no reminder at the start time.
+SkillSwap is live and working end to end: sign-up, matching, chat, sessions, Razorpay payments and refunds, video rooms and admin. The 62 tests cover accounts, matching, connections, chat, bookings (including two people grabbing the last seat at once), payments, refunds, meeting rooms and admin. It runs as a single server, so live presence and timers are kept in memory, and the free plan means reminders only go out while the server is awake.
 
 ## History
 
-SkillSwap began as a single-file prototype (`archive/index_1.html`) with mock data and client-side matching. This repository is the full-stack rebuild.
+SkillSwap began as a single-file prototype (`archive/index_1.html`) with mock data. This repository is the full rebuild.
