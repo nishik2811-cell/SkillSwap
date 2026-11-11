@@ -71,19 +71,20 @@ export default function Landing() {
   const href = (s) => (user ? `/discover?skillId=${s.id}` : '/register');
   return (
     <div className={`moa-root ${entered ? '' : 'pre'}`} data-theme={theme}>
+      <header className="moa-head">
+        <Link to="/" className="moa-logo">SKILLSWAP<sup>©26</sup></Link>
+        <nav className="moa-mono" aria-label="Main">
+          {user ? <><Link to="/discover" className="hide-s">Discover</Link><Link to="/dashboard">Dashboard</Link><button onClick={logout} className="hide-s">Log out</button></>
+            : <><Link to="/login" className="hide-s">Log in</Link><Link to="/register">Join</Link></>}
+          <span className="hide-s">{time}</span>
+          <button className="pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>
+        </nav>
+      </header>
       <DragChip />
       <div className="zoom-track" ref={track}>
         <div className="zoom-bar" aria-hidden="true" />
         <div className="moa">
-          <header className="moa-head">
-            <Link to="/" className="moa-logo">SKILLSWAP<sup>©26</sup></Link>
-            <nav className="moa-mono" aria-label="Main">
-              {user ? <><Link to="/discover" className="hide-s">Discover</Link><Link to="/dashboard">Dashboard</Link><button onClick={logout} className="hide-s">Log out</button></>
-                : <><Link to="/login" className="hide-s">Log in</Link><Link to="/register">Join</Link></>}
-              <span className="hide-s">{time}</span>
-              <button className="pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>
-            </nav>
-          </header>
+          <div className="moa-head-spacer" aria-hidden="true" />
 
           <div className="moa-row moa-mono fade"><span>Side {side}</span><span className="hide-s">Scroll to dive into the groove</span><span>Est. 2026</span></div>
 

@@ -24,8 +24,7 @@
 
 /* cassette timeline */
 .tape-track { height: 420vh; position: relative; background: var(--bg); --q: 0; }
-.tape-pin { position: sticky; top: 0; height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; }
-.tape-head { padding: 18px clamp(16px, 2.4vw, 32px) 0; } .tape-head nav { display: flex; align-items: center; gap: 16px; } .tape-head .cta { min-height: 40px; padding: 0 18px; }
+.tape-pin { position: sticky; top: 0; height: 100dvh; padding-top: 64px; box-sizing: border-box; display: grid; grid-template-rows: 1fr auto; }
 .tape { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: clamp(24px, 5vw, 80px); max-width: 1200px; margin: 0 auto; width: 100%; padding: 0 clamp(16px, 2.4vw, 32px); }
 .cassette { position: relative; aspect-ratio: 1.62; border-radius: 16px; padding: 5% 6%; background: linear-gradient(#e9e4d4 0 74%, #1d1d23 74%); box-shadow: 0 0 0 7px #25252b, 0 40px 70px rgba(0, 0, 0, .55); transform: rotate(-4deg) perspective(900px) rotateY(calc(4deg - var(--q) * 8deg)); color: #15141a; }
 .c-top { display: flex; justify-content: space-between; align-items: baseline; font: 800 clamp(1rem, 2.6vw, 1.7rem) var(--display); font-stretch: 125%; } .c-top span { font: 500 .8rem var(--mono); }
@@ -78,7 +77,7 @@
 .wordmark { font-size: 12.7cqw; text-align: center; }
 
 /* light theme: while the camera is inside the (always dark) groove field, the overlaid text eases to light ink */
-.moa-root[data-theme='light'] :is(.moa-head, .moa-row, .readout, .wave-copy) {
+.moa-root[data-theme='light'] :is(.moa-row, .readout, .wave-copy) {
   --fg: color-mix(in srgb, #ecebe4 calc(var(--dive, 0) * 100%), #0c0b0f);
   --muted: color-mix(in srgb, #b4b0bd calc(var(--dive, 0) * 100%), #6a6672);
   --line: color-mix(in srgb, rgba(236, 235, 228, .2) calc(var(--dive, 0) * 100%), rgba(12, 11, 15, .2));

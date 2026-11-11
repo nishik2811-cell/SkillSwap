@@ -13,6 +13,7 @@ const v3 = {
   cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
 };
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
@@ -22,7 +23,7 @@ const DIVE = [0.52, 0, 0.47], DR = Math.hypot(DIVE[0], DIVE[2]), TAN = [-DIVE[2]
 const DIR1 = v3.norm(v3.add(v3.mul(TAN, -1), [0, 0.14, 0])), D1 = 0.0127;
 const DIRF = v3.norm([0, 1, 0.55]), DF = 4.8;
 export const HOLD = [0.5, 0.6];       // scroll range where the camera rests inside the groove
-export function cameraAt(s, aspect = 1.6, mx = 0, my = 0) {
+export function cameraAt(s, aspect = 1.6, mx = 0, my = 0, hf = { k: 1.17, up: 0.13 }) {   // hf: how far to back off and lift the record at the top of the page
   let tgt, dist, dir, flip = 0, up = 0;
   if (s < 0.5) {
     const e = ease(smooth(0.04, 0.5, s));
@@ -35,8 +36,9 @@ export function cameraAt(s, aspect = 1.6, mx = 0, my = 0) {
   }
   const o = Math.min(1, dist / 1.5), ay = mx * 0.2 * o, ax = my * 0.1 * o, cy = Math.cos(ay), sy = Math.sin(ay);   // a little orbit with the pointer, fading out up close
   dir = v3.norm([dir[0] * cy + dir[2] * sy, dir[1] + ax, -dir[0] * sy + dir[2] * cy]);
-  const fit = Math.max(1, 4.2 / aspect / D0), d2 = dist * (1 + (fit - 1) * clamp01(dist / 3));       // narrow screens: back off so the whole record fits
-  up = 0.15 * (1 - smooth(0.02, 0.2, s)) * (1 - smooth(0.88, 0.97, s)); // hero: sit the record in the upper part of the frame
+  const hero = (1 - smooth(0.02, 0.2, s)) * (1 - smooth(0.88, 0.97, s)); // 1 at the very top of the page, 0 once the dive starts
+  const fit = Math.max(1, 4.2 / aspect / D0), d2 = dist * (1 + (fit - 1) * clamp01(dist / 3)) * (1 + (hf.k - 1) * hero);       // narrow screens: back off so the whole record fits; hero: smaller if needed so it clears the top line and the headline
+  up = hf.up * hero; // hero: lift the record to the middle of the free band
   return { cam: v3.add(tgt, v3.mul(dir, d2)), tgt, dist, flip, off: up };
 }
 export const magAt = (s) => D0 / cameraAt(s).dist;
@@ -215,15 +217,26 @@ export default function Record3D({ side, theme, rpm = 33, onScratch }) {
     root.dataset.gl = '1';
 
     let W = 1, H = 1, scale = 1, sMix = live.current.side === 'B' ? 1 : 0, s = 0, visible = true, rot = 0, omega = reduce ? 0 : RPM33, dragging = false, lastX = 0, lastT = 0, mx = 0, my = 0, smx = 0, smy = 0, cur = cameraAt(0), raf = 0, slowFrames = 0, last = 0;
-    const resize = () => {
+    let resize = () => {
       const r = canvas.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height);
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * scale; canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); gl.viewport(0, 0, canvas.width, canvas.height);
     };
-    const ro = new ResizeObserver(resize); ro.observe(canvas); resize();
+    // At the top of the page the record must fit the free band between the "scroll to dive" line and the headline block, on any window size.
+    let heroFit = { k: 1.17, up: 0.13 };
+    const fitHero = () => {
+      const row = root.querySelector('.moa-row'), copy = root.querySelector('.moa-copy'), h = canvas.offsetHeight;
+      if (!row || !copy || h < 200) return;
+      const top = row.offsetTop + row.offsetHeight + 24, bottom = copy.offsetTop - 22, band = (bottom - top) / h; // fractions of the frame
+      if (band < 0.2) return;
+      const narrow = Math.max(1, 4.2 / (canvas.offsetWidth / h) / D0);   // portrait screens already back the camera off
+      heroFit = { k: clamp(0.562 / (band * narrow), 1, 1.9), up: clamp((0.5 - (top + bottom) / 2 / h) / 0.83, 0, 0.3) };   // 0.562: record height as a fraction of the frame at k = 1; 0.83: frame fraction moved per unit of lift
+    };
+    const resize0 = resize; resize = () => { resize0(); fitHero(); };
+    const ro = new ResizeObserver(resize); ro.observe(canvas); resize(); document.fonts?.ready.then(fitHero);
     const progress = () => { if (reduce || !track) return 0; const r = track.getBoundingClientRect(), span = r.height - innerHeight; return span > 0 ? clamp01(-r.top / span) : 0; };
     // is the pointer on the record? (ray -> record plane, same maths as the shader)
     const onRecord = (px, py) => {
-      const c = cameraAt(s, W / H, 0, 0), f = v3.norm(v3.sub(c.tgt, c.cam)), rr = v3.norm(v3.cross(f, [0, 1, 0])), up = v3.cross(rr, f);
+      const c = cameraAt(s, W / H, 0, 0, heroFit), f = v3.norm(v3.sub(c.tgt, c.cam)), rr = v3.norm(v3.cross(f, [0, 1, 0])), up = v3.cross(rr, f);
       const u = (px - W / 2) / H, v = -(py - H / 2) / H - c.off, rd = v3.norm(v3.add(v3.add(v3.mul(f, 1.85), v3.mul(rr, u)), v3.mul(up, v)));
       const N = [0, Math.cos(c.flip), Math.sin(c.flip)], den = v3.dot(rd, N); if (Math.abs(den) < 1e-5) return false;
       const t = -v3.dot(c.cam, N) / den; if (t <= 0) return false; const P = v3.add(c.cam, v3.mul(rd, t)); return Math.hypot(P[0], P[1], P[2]) < 1;
@@ -248,7 +261,7 @@ export default function Record3D({ side, theme, rpm = 33, onScratch }) {
       if (!dragging) omega += ((reduce ? 0 : live.current.rpm === 45 ? RPM45 : RPM33) - omega) * Math.min(1, dt * 2.6);
       s = progress(); smx += (mx - smx) * Math.min(1, dt * 3); smy += (my - smy) * Math.min(1, dt * 3);
       sMix += ((live.current.side === 'B' ? 1 : 0) - sMix) * Math.min(1, dt * 8);
-      cur = cameraAt(s, W / H, smx, smy);
+      cur = cameraAt(s, W / H, smx, smy, heroFit);
       rot += omega * dt * Math.max(0.004, Math.min(1, cur.dist / D0));     // slow the platter as we close in, so the needle's-eye view drifts instead of smearing
       gl.uniform2f(U.uRes, canvas.width, canvas.height); gl.uniform1f(U.uRot, rot); gl.uniform1f(U.uFlip, cur.flip); gl.uniform1f(U.uSide, sMix); gl.uniform1f(U.uOff, cur.off);
       const dive = smooth(0.08, 0.22, s) * (1 - smooth(0.6, 0.7, s)); gl.uniform1f(U.uDive, dive); root.style.setProperty('--dive', dive.toFixed(3));   // the page text reads --dive to stay legible over the dark groove field

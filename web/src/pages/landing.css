@@ -54,6 +54,9 @@ body:has(.moa-root) .nav { display: none; }
 .zoom-track .vinyl-stage { transform: translate(calc(var(--p) * -6vw), calc(var(--p) * -4vh)) scale(calc(1 + var(--p) * 3)); transform-origin: 50% 50%; opacity: calc(1 - (var(--p) - .1) * 5); will-change: transform; }
 .fade { opacity: calc(1 - var(--p) * 7); } .zoomed .fade, .zoomed .vinyl-stage { pointer-events: none; }
 .moa-head { position: relative; z-index: 6; }
+/* the site bar stays pinned to the top of the whole landing page; .moa-head-spacer keeps its row in the hero grid */
+.moa-root > .moa-head { position: fixed; top: 0; left: 0; right: 0; z-index: 29; padding: 12px clamp(16px, 2.4vw, 32px); background: color-mix(in srgb, var(--bg) 84%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.moa-head-spacer { height: 44px; }
 .vinyl-close { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: calc((var(--p) - .2) * 5); overflow: hidden; transform-origin: 0 0; transform: scale(calc(1 + max(0, var(--p) - .4) * 1.2)); background: #121216; }
 .vinyl-close::before { content: ''; position: absolute; inset: 0;
   background: conic-gradient(from 165deg at -6% -12%, transparent 0 6%, rgba(255,255,255,.2) 13%, transparent 22%, transparent 38%, rgba(255,255,255,.12) 45%, transparent 56%),
