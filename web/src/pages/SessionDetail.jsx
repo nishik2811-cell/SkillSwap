@@ -41,7 +41,7 @@ export default function SessionDetail() {
     <Alert>{err}</Alert>
 
     {!s.isMentor && <section className="card stack">
-      {b && <div><b>Your booking:</b> {STATUS_TEXT[b.status]}</div>}
+      {b && <div className="row" style={{ gap: 10 }}><b>Your booking</b><span className={`tag bk-${b.status}`}>{STATUS_TEXT[b.status]}</span></div>}
       {(!b || b.status === 'cancelled') && open && s.seatsLeft > 0 && <>
         <input aria-label="Note to the mentor" placeholder="Note to the mentor (optional)" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
         <div><button className="btn accent" disabled={busy} onClick={() => act(() => api(`/sessions/${id}/book`, { method: 'POST', body: { note } }))}>{s.autoAccept ? (s.pricing === 'free' ? 'Book your seat' : 'Reserve a seat') : 'Request to join'}</button> <span className="hint">{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left{s.autoAccept ? ' · instant booking' : ' · the mentor approves requests'}</span></div></>}

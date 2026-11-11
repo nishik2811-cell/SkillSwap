@@ -48,9 +48,10 @@ export default function PayButton({ bookingId, title, amountPaise, onPaid }) {
       rzp.open();
     } catch (x) { setErr(msg(x)); setBusy(false); }
   }
-  return <div className="stack">
+  return <div className="stack" style={{ gap: 10 }}>
     <Alert>{err}</Alert><Alert kind="ok">{info}</Alert>
-    <div><button className="btn accent" disabled={busy} onClick={pay}>{busy ? 'Opening secure payment…' : `Pay ${rupees(amountPaise)}`}</button>
-      <span className="hint"> Secure checkout by Razorpay. We never see or store your card details.</span></div>
+    <div><button className="btn accent pay-btn" disabled={busy} onClick={pay}>{busy ? 'Opening secure payment…' : `Pay ${rupees(amountPaise)}`}</button></div>
+    <p className="hint pay-note"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+      Secure checkout by Razorpay. SkillSwap never sees or stores your card details.</p>
   </div>;
 }

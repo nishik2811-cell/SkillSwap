@@ -24,7 +24,13 @@ export async function createOrderForBooking(user, bookingId) {
 
   // retrying a failed/unfinished attempt reuses the same gateway order
   const [[prev]] = await pool.query("SELECT * FROM payments WHERE booking_id = ? AND status IN ('created','failed') ORDER BY id DESC LIMIT 1", [b.id]);
-  if (prev) return { paymentId: prev.id, orderId: prev.gateway_order_id, amountPaise: prev.amount_paise, currency: prev.currency, title: b.title };
+  if (prev) {
+    // ...but only if that order still exists for the keys in use now: after switching Razorpay keys (a new account, or test -> live)
+    // an old order id makes Checkout fail with "Something went wrong". No money moved on it, so drop it and start a fresh order.
+    const alive = await gw.fetchOrder(prev.gateway_order_id).then(() => true, (e) => { if (e.status >= 400 && e.status < 500) return false; throw e; });
+    if (alive) return { paymentId: prev.id, orderId: prev.gateway_order_id, amountPaise: prev.amount_paise, currency: prev.currency, title: b.title };
+    await pool.query("DELETE FROM payments WHERE id = ? AND status IN ('created','failed')", [prev.id]);
+  }
 
   const pct = await getSetting('commission_percent', '10'); const { fee, net } = splitAmount(amount, pct);
   const order = await gw.createOrder({ amountPaise: amount, receipt: `bk${b.id}-${Date.now().toString(36)}`, notes: { booking_id: String(b.id), session_id: String(b.session_id) } });

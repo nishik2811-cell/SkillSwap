@@ -20,6 +20,7 @@ gw.setTransport(async ({ method, url, body }) => {
   const path = url.replace('https://api.razorpay.com/v1', '');
   if (method === 'POST' && path === '/orders') { const o = { id: `order_${run}${++G.n}`, amount: body.amount, currency: body.currency, status: 'created' }; G.orders.set(o.id, o); return { status: 200, json: o }; }
   let m;
+  if (method === 'GET' && (m = path.match(/^\/orders\/(.+)$/))) { const o = G.orders.get(m[1]); return o ? { status: 200, json: o } : { status: 400, json: { error: { code: 'BAD_REQUEST_ERROR', description: 'The id provided does not exist' } } }; }
   if (method === 'GET' && (m = path.match(/^\/payments\/(.+)\/refunds/))) return { status: 200, json: { items: G.refunds.filter((r) => r.payment_id === m[1]) } };
   if (method === 'GET' && (m = path.match(/^\/payments\/(.+)$/))) { const p = G.payments.get(m[1]); return p ? { status: 200, json: p } : { status: 404, json: { error: { description: 'not found' } } }; }
   if (method === 'POST' && (m = path.match(/^\/payments\/(.+)\/capture$/))) { const p = G.payments.get(m[1]); p.status = 'captured'; return { status: 200, json: p }; }
@@ -88,6 +89,9 @@ test('happy path: amount from the DB, tamper-proof, verified with the gateway, c
   const o = await call(`/bookings/${b}/pay`, 'POST', { amountPaise: 1, amount: 1 }, learner); // a client-supplied amount is simply ignored
   assert.equal(o.status, 200); assert.equal(o.body.amountPaise, 50000); assert.equal(o.body.keyId, 'rzp_test_abc'); assert.equal(G.orders.get(o.body.orderId).amount, 50000);
   assert.equal((await startPay(learner, b)).body.orderId, o.body.orderId); // resuming reuses the order
+  G.orders.delete(o.body.orderId); // the keys changed (another Razorpay account): that order no longer exists there
+  const fresh = (await startPay(learner, b)).body; assert.notEqual(fresh.orderId, o.body.orderId); assert.ok(G.orders.has(fresh.orderId));
+  o.body = fresh; // the rest of this test pays the fresh order
   const proof = customerPays(o.body.orderId);
   assert.equal((await call('/payments/verify', 'POST', { ...proof, razorpay_signature: 'f'.repeat(64) }, learner)).body.error, 'invalid_signature');
   assert.equal(await bstatus(learner), 'awaiting_payment'); // a forged callback grants nothing

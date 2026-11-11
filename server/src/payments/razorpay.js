@@ -29,6 +29,7 @@ async function call(method, path, body) {
 }
 
 export const createOrder = ({ amountPaise, receipt, notes }) => call('POST', '/orders', { amount: amountPaise, currency: 'INR', receipt, notes });
+export const fetchOrder = (id) => call('GET', `/orders/${encodeURIComponent(id)}`);
 export const fetchPayment = (id) => call('GET', `/payments/${encodeURIComponent(id)}`);
 export const capturePayment = (id, amountPaise) => call('POST', `/payments/${encodeURIComponent(id)}/capture`, { amount: amountPaise, currency: 'INR' });
 export const refundPayment = (id, amountPaise, notes) => call('POST', `/payments/${encodeURIComponent(id)}/refund`, { amount: amountPaise, speed: 'normal', notes });

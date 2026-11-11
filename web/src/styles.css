@@ -130,3 +130,6 @@ form.narrow > .btn { margin-top: 14px; }
 .status-pick { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 0 10px; min-height: 36px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
 .status-pick select { border: 0; background: transparent; color: inherit; font: 400 .72rem var(--font-mono); text-transform: uppercase; letter-spacing: .08em; padding: 0; min-height: 0; width: auto; cursor: pointer; }
 .tag.live { color: #f23f43; border-color: currentColor; margin-left: 6px; } .tag + .tag { margin-left: 6px; }
+/* booking box on a session page */
+.pay-btn { min-width: 200px; } .pay-note { display: flex; align-items: center; gap: 6px; margin: 0; }
+.tag.bk-awaiting_payment, .tag.bk-requested { color: #c99a1f; border-color: currentColor; } .tag.bk-confirmed, .tag.bk-completed { color: #23a55a; border-color: currentColor; }
