@@ -41,9 +41,18 @@ Optional demo data: `npm run seed` (refuses to run when `NODE_ENV=production`; u
 Dashboard > Settings > Webhooks: `https://<service>.onrender.com/api/v1/webhooks/razorpay`, a secret (= `RAZORPAY_WEBHOOK_SECRET`),
 events `payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`.
 
+## 6. Sign in with Google (optional)
+1. Google Cloud Console > create or pick a project > **APIs & Services > OAuth consent screen** (External; app name, your email) and add yourself as a test user while it is in Testing.
+2. **Credentials > Create credentials > OAuth client ID > Web application.**
+   - Authorized redirect URI: `https://<your-vercel-site>/api/v1/auth/google/callback` (for local use also `http://localhost:5173/api/v1/auth/google/callback`).
+3. Copy the client ID and secret into Render as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (locally, into `.env`) and redeploy.
+   `WEB_ORIGIN` must be exactly your site's URL, because the redirect URI is built from it.
+4. A **Continue with Google** button now shows on the login and register pages. Anyone whose Google email matches an existing account is linked to it; new people get an account with a verified email.
+To let people outside your test-user list sign in, publish the consent screen (Google may ask for verification).
+
 ## Local development
 Any PostgreSQL 14+ with the `citext` extension: set `DATABASE_URL`, run `npm run migrate`, `npm run dev`, `npm test`.
 
 ## Known limits
 Single API instance (presence and job timers are in memory). Uploads are on disk, mirrored in Postgres when `FILE_STORE=db`. Payouts are marked paid by an admin by hand.
-Deployed on Neon + Render + Vercel. The 58 tests run against a local PostgreSQL 18; a real Razorpay payment, real email delivery and two-person video still need a manual check.
+Deployed on Neon + Render + Vercel. The 59 tests run against a local PostgreSQL 18; a real Razorpay payment, real email delivery and two-person video still need a manual check.

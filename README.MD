@@ -6,7 +6,7 @@ SkillSwap is a peer-to-peer skill exchange. Everyone is both a **Mentor** (what 
 
 **Live:** https://skillswap-eight-chi.vercel.app (the API runs on a free tier and sleeps when idle, so the first request after a quiet spell can take about a minute)
 
-![Node 22+](https://img.shields.io/badge/node-22%2B-3c873a) ![PostgreSQL 14+](https://img.shields.io/badge/postgresql-14%2B-336791) ![Tests 58](https://img.shields.io/badge/tests-58%20passing-2ea44f)
+![Node 22+](https://img.shields.io/badge/node-22%2B-3c873a) ![PostgreSQL 14+](https://img.shields.io/badge/postgresql-14%2B-336791) ![Tests 58](https://img.shields.io/badge/tests-59%20passing-2ea44f)
 
 ## Contents
 
@@ -16,7 +16,7 @@ SkillSwap is a peer-to-peer skill exchange. Everyone is both a **Mentor** (what 
 
 | Area | What it does |
 |---|---|
-| **Accounts** | Register, email verification, log in by email or user ID, password reset, four-step onboarding, public profile at `/u/<id>` |
+| **Accounts** | Register or **continue with Google**, email verification, log in by email or user ID, password reset, four-step onboarding, public profile at `/u/<id>` |
 | **Discover** | Best Match ranking by default (skill fit, level, price, time-zone availability, language, teaching style, rating, profile completeness). Filters and other sorts. Weights are editable by an admin |
 | **Connections** | Requests, accept or decline, block, report. Live notifications |
 | **Chat** | Direct and group chats, read receipts, typing, presence, attachments, edit your own messages, emoji reactions, search within a chat, and **schedule a meeting** straight from a conversation |
@@ -73,6 +73,7 @@ Copy `.env.example` to `.env`. Never commit `.env`, and never put secrets in sou
 | `WEB_ORIGIN` | in production | Your site's URL with no trailing slash: used for CORS and links in emails |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | for real email | `MAIL_FROM` must be a sender your SMTP service has verified, or mail is silently dropped |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | for paid sessions | Webhook URL: `https://<api-host>/api/v1/webhooks/razorpay` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for "Continue with Google" | Optional. Leave blank and the button is hidden. Setup in [DEPLOY.md](DEPLOY.md) |
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | for Meeting Rooms | `LIVEKIT_URL` is the `wss://…` address; key and secret must be from the same LiveKit project |
 | `FILE_STORE=db` | on hosts with an ephemeral disk | Also keeps avatars and attachments in Postgres |
 | `UPLOAD_DIR`, `TRUST_PROXY` | optional | Upload folder, and how many proxies sit in front of the API |
@@ -128,7 +129,7 @@ DEPLOY.md  CHECKLIST.md  hosting steps, and what is built and what still needs a
 
 ## Testing
 
-`npm test` runs 58 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access and invites, admin, and durable uploads. Meeting-room tests also call a real LiveKit server.
+`npm test` runs 59 tests against a real database: auth, onboarding and ranking, connections, chat, sessions and bookings (including concurrent seat races), payments against a fake gateway with real signatures, meeting-room access and invites, admin, and durable uploads. Meeting-room tests also call a real LiveKit server.
 
 ## Deployment
 

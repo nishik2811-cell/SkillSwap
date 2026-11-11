@@ -5,6 +5,7 @@ import { pool } from '../db.js';
 import { hashPassword, verifyPassword, newToken, sha256, signSocketToken } from './crypto.js';
 import { sendMail, actionMail } from './mail.js';
 import { COOKIE, requireAuth } from './middleware.js';
+import { google, configured as googleConfigured, authUrl as googleAuthUrl } from './google.js';
 
 export const router = Router();
 if (process.env.NODE_ENV !== 'test') {
@@ -53,6 +54,51 @@ async function suggest(base) {
   const taken = new Set(rows.map((r) => r.username.toLowerCase()));
   return list.filter((c) => !taken.has(c)).slice(0, 4);
 }
+
+// ---- Sign in with Google ----
+const GSTATE = 'g_state', GPATH = '/api/v1/auth/google';
+router.get('/providers', (_req, res) => res.json({ google: googleConfigured() }));
+
+router.get('/google', (_req, res) => {
+  if (!googleConfigured()) return res.redirect('/login?error=google_not_configured');
+  const state = newToken();
+  res.cookie(GSTATE, state, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 10 * 60e3, path: GPATH });
+  res.redirect(googleAuthUrl(state));
+});
+
+router.get('/google/callback', wrap(async (req, res) => {
+  const fail = (e) => res.redirect(`/login?error=${e}`);
+  const state = req.cookies?.[GSTATE]; res.clearCookie(GSTATE, { path: GPATH });
+  if (req.query.error) return fail('google_cancelled');
+  if (!state || state !== req.query.state || typeof req.query.code !== 'string') return fail('google_failed'); // state ties the answer to the browser that asked
+  let c; try { c = await google.exchange(req.query.code); } catch (e) { console.error('[google] sign-in failed:', e.message); return fail('google_failed'); }
+  if (!c.email_verified || !c.email || !c.sub) return fail('google_unverified');
+  const email = c.email.toLowerCase();
+  let [[u]] = await pool.query('SELECT id, status FROM users WHERE google_sub = ?', [c.sub]);
+  if (!u) {
+    [[u]] = await pool.query('SELECT id, status, google_sub, email_verified_at FROM users WHERE email = ?', [email]);
+    if (u?.google_sub) return fail('google_failed'); // that address is already tied to another Google account
+    if (u) { // Google vouches for this address: link it. An account nobody ever verified may have been registered by someone else, so its password is voided.
+      await pool.query('UPDATE users SET google_sub = ?, email_verified_at = COALESCE(email_verified_at, NOW()), password_hash = CASE WHEN email_verified_at IS NULL THEN ? ELSE password_hash END WHERE id = ?',
+        [c.sub, hashPassword(newToken()), u.id]);
+      if (!u.email_verified_at) await pool.query('DELETE FROM auth_sessions WHERE user_id = ?', [u.id]);
+    }
+  }
+  if (!u) {
+    const local = email.split('@')[0].replace(/[^a-z0-9_]/g, '_'), base = (local.length >= 3 ? local : `${local}user`).slice(0, 20);
+    for (let i = 0; !u && i < 5; i++) {
+      try {
+        const [r] = await pool.query('INSERT INTO users (email, username, password_hash, full_name, email_verified_at, google_sub) VALUES (?,?,?,?,NOW(),?)',
+          [email, i ? `${base.slice(0, 16)}${Math.floor(100 + Math.random() * 900)}` : base, hashPassword(newToken()), String(c.name || local).slice(0, 100), c.sub]); // no one knows this password; "Forgot password" can set one
+        u = { id: r.insertId, status: 'active' };
+      } catch (e) { if (e.code !== 'ER_DUP_ENTRY' || !String(e.sqlMessage).includes('uq_users_username')) throw e; }
+    }
+    if (!u) return fail('google_failed');
+  }
+  if (u.status !== 'active') return fail('account_inactive');
+  await startSession(res, u.id);
+  res.redirect('/dashboard');
+}));
 
 router.get('/username-available', wrap(async (req, res) => {
   const u = parse(username, req.query.u, res); if (u === null) return;

@@ -4,6 +4,17 @@ import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert, Field } from '../components/UI.jsx';
 
+const GOOGLE_ERRORS = { google_cancelled: 'Google sign-in was cancelled.', google_failed: 'Google sign-in did not work. Please try again.', google_unverified: 'Google says that email address is not verified.',
+  google_not_configured: 'Google sign-in is not set up yet.', account_inactive: 'This account is not active.' };
+
+// "Continue with Google" appears only when the server has Google credentials.
+function GoogleButton() {
+  const [on, setOn] = useState(false);
+  useEffect(() => { api('/auth/providers').then((r) => setOn(!!r.google)).catch(() => {}); }, []);
+  if (!on) return null;
+  return <><a className="btn ghost" href="/api/v1/auth/google" style={{ display: 'block', textAlign: 'center' }}>Continue with Google</a><p className="hint" style={{ textAlign: 'center', margin: '4px 0' }}>or use your email</p></>;
+}
+
 function Resend({ identifier }) {
   const [state, setState] = useState('');
   const go = () => { setState('busy'); api('/auth/resend-verification', { method: 'POST', body: { identifier } }).then(() => setState('sent')).catch(() => setState('err')); };
@@ -40,7 +51,7 @@ export function Register() {
   return (
     <div className="center"><form className="card narrow" onSubmit={submit} noValidate>
       <h2>Join SkillSwap</h2><p className="muted">Teach what you know. Learn what you don't.</p>
-      <Alert>{err}</Alert>
+      <Alert>{err}</Alert><GoogleButton />
       <Field id="fn" label="Full name" hint={fieldErrs.fullName?.[0]}><input id="fn" required value={f.fullName} onChange={set('fullName')} autoComplete="name" /></Field>
       <Field id="em" label="Email" hint={fieldErrs.email?.[0]}><input id="em" type="email" required value={f.email} onChange={set('email')} autoComplete="email" /></Field>
       <Field id="un" label="Choose your User ID" hint={hint} hintKind={avail?.available ? 'ok' : avail ? 'err' : ''}>
@@ -56,7 +67,7 @@ export function Register() {
 
 export function Login() {
   const { user, refresh } = useAuth(); const nav = useNavigate();
-  const [f, setF] = useState({ identifier: '', password: '' }); const [err, setErr] = useState(''); const [unverified, setUnverified] = useState(false); const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({ identifier: '', password: '' }); const [q] = useSearchParams(); const [err, setErr] = useState(GOOGLE_ERRORS[q.get('error')] || ''); const [unverified, setUnverified] = useState(false); const [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/dashboard" replace />;
   async function submit(e) {
     e.preventDefault(); setErr(''); setUnverified(false); setBusy(true);
@@ -65,7 +76,7 @@ export function Login() {
   }
   return (
     <div className="center"><form className="card narrow" onSubmit={submit}>
-      <h2>Welcome back</h2><Alert>{err}</Alert>{unverified && <Resend identifier={f.identifier} />}
+      <h2>Welcome back</h2><Alert>{err}</Alert><GoogleButton />{unverified && <Resend identifier={f.identifier} />}
       <Field id="id" label="Email or User ID"><input id="id" required value={f.identifier} onChange={(e) => setF({ ...f, identifier: e.target.value })} autoComplete="username" autoCapitalize="none" /></Field>
       <Field id="pw" label="Password"><input id="pw" type="password" required value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="current-password" /></Field>
       <button className="btn" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
