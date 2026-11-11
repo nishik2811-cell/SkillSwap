@@ -8,7 +8,6 @@ const TERMS = [
 export default function About() {
   return (
     <section className="sleeve about" aria-labelledby="about-h">
-      <p className="moa-mono">Side A · About</p>
       <h2 id="about-h">Teach what you know. Learn what you don't.</h2>
       <ul className="about-terms">{TERMS.map(([n, name, line]) => <li key={n}><span className="moa-mono">{n}</span><b>{name}</b><span className="about-line">{line}</span></li>)}</ul>
     </section>

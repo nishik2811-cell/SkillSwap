@@ -14,6 +14,6 @@ export default function Dashboard() {
     <Alert>{err}</Alert>
     {!rec && !err && <div className="grid" style={{ marginTop: 24 }}>{[1, 2, 3].map((i) => <div key={i} className="skeleton" />)}</div>}
     {rec?.matches.length === 0 && <div className="empty"><h3>No matches yet</h3><p>Add skills you want to learn in Settings, or check back as more people join.</p></div>}
-    <div className="grid" style={{ marginTop: 24 }}>{rec?.matches.map((u) => <PersonCard key={u.username} u={u} />)}</div>
+    <div className="crate" style={{ marginTop: 24 }}>{rec?.matches.map((u) => <PersonCard key={u.username} u={u} />)}</div>
   </div>;
 }
