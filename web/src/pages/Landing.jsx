@@ -123,7 +123,7 @@ export default function Landing() {
           <p className="moa-mono">Back of the sleeve</p>
           <h2 id="sk">Every skill is a track</h2>
           <div className="sleeve-cols">
-            {[skills.slice(0, half), skills.slice(half)].map((list, c) => { const label = list.length ? (list[0].category === list.at(-1).category ? list[0].category : `${list[0].category} to ${list.at(-1).category}`) : ''; return (
+            {[skills.slice(0, half), skills.slice(half)].map((list, c) => { const n = (k) => String(k).padStart(2, '0'), label = list.length ? `${c ? 'Deep cuts' : 'Opening tracks'} · ${n(c * half + 1)}–${n(c * half + list.length)}` : ''; return (
               <div key={c}><p className="moa-mono">{label}</p>
                 <ul>{list.map((s, i) => <li key={s.id}><Link to={href(s)}><span className="moa-mono">{String(c * half + i + 1).padStart(2, '0')}</span><b>{s.name}</b><span className="moa-mono">{s.category}</span></Link></li>)}</ul></div>
             ); })}
