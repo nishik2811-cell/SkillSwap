@@ -1,5 +1,5 @@
 .profile { display: grid; grid-template-columns: minmax(260px, 420px) minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 36px clamp(16px, 2.4vw, 32px) 80px; max-width: 1320px; align-items: start; }
-.pf-cover { position: sticky; top: 84px; padding-right: 8%; } .pf-cover .cd { width: 100%; } .pf-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pf-cover { position: sticky; top: 84px; padding-right: 16%; } .pf-cover .cd { width: 100%; } .pf-actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .pf-kicker { margin: 0 0 10px; font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
 .pf-notes h1 { margin: 0; font-size: clamp(2.4rem, 6vw, 5rem); overflow-wrap: anywhere; } .pf-handle { margin: 10px 0 0; font: 400 .8rem var(--font-mono); letter-spacing: .08em; color: var(--ink-2); }
 .pf-bio { margin: 22px 0 0; font-size: 1.1rem; line-height: 1.6; max-width: 40em; }

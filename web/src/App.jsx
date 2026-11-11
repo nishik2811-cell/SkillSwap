@@ -13,7 +13,7 @@ import Connections from './pages/Connections.jsx';
 import Notifications from './pages/Notifications.jsx';
 import { Nav } from './components/UI.jsx';
 import Landing from './pages/Landing.jsx';
-import { Register, Login, VerifyEmail, ForgotPassword, ResetPassword } from './pages/AuthPages.jsx';
+import { Register, Login, ChooseId, VerifyEmail, ForgotPassword, ResetPassword } from './pages/AuthPages.jsx';
 import Onboarding from './pages/Onboarding.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Discover from './pages/Discover.jsx';
@@ -35,7 +35,7 @@ const P = (el) => <Protected>{el}</Protected>;
 export default function App() {
   return <BrowserRouter><AuthProvider><SocialProvider><Nav /><Routes>
     <Route path="/" element={<Landing />} />
-    <Route path="/register" element={<Register />} /><Route path="/login" element={<Login />} />
+    <Route path="/register" element={<Register />} /><Route path="/login" element={<Login />} /><Route path="/choose-id" element={<ChooseId />} />
     <Route path="/verify-email" element={<VerifyEmail />} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/onboarding" element={P(<Onboarding />)} /><Route path="/dashboard" element={P(<Dashboard />)} />
     <Route path="/discover" element={P(<Discover />)} /><Route path="/u/:username" element={P(<Profile />)} /><Route path="/wallet" element={P(<Wallet />)} /><Route path="/receipts/:id" element={P(<Receipt />)} /><Route path="/meetings" element={P(<Meetings />)} /><Route path="/room/:code" element={P(<Room />)} /><Route path="/sessions" element={P(<Sessions />)} /><Route path="/sessions/new" element={P(<SessionNew />)} /><Route path="/sessions/:id" element={P(<SessionDetail />)} /><Route path="/messages" element={P(<Messages />)} /><Route path="/messages/:id" element={P(<Messages />)} /><Route path="/connections" element={P(<Connections />)} /><Route path="/notifications" element={P(<Notifications />)} /><Route path="/settings" element={P(<Settings />)} />

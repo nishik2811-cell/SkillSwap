@@ -23,6 +23,19 @@ export function signSocketToken(userId, ttlSec = 60) {
   const body = Buffer.from(JSON.stringify({ uid: userId, exp: Math.floor(Date.now() / 1000) + ttlSec })).toString('base64url');
   return `${body}.${sockSig(body)}`;
 }
+// Same idea for other short-lived claims (purpose-bound so a token for one use is useless for another). -> data, or null.
+export function signPayload(purpose, data, ttlSec) {
+  const body = Buffer.from(JSON.stringify({ ...data, exp: Math.floor(Date.now() / 1000) + ttlSec })).toString('base64url');
+  return `${body}.${createHmac('sha256', sockSecret()).update(`${purpose}:${body}`).digest('base64url')}`;
+}
+export function readPayload(purpose, token) {
+  try {
+    const [body, sig] = String(token).split('.'); if (!body || !sig) return null;
+    const a = Buffer.from(createHmac('sha256', sockSecret()).update(`${purpose}:${body}`).digest('base64url')), b = Buffer.from(sig);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    const d = JSON.parse(Buffer.from(body, 'base64url').toString()); return d.exp > Date.now() / 1000 ? d : null;
+  } catch { return null; }
+}
 export function verifySocketToken(token) { // -> user id, or null
   try {
     const [body, sig] = String(token).split('.'); if (!body || !sig) return null;

@@ -1,5 +1,5 @@
 .onb { display: grid; grid-template-columns: minmax(260px, 400px) minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 36px clamp(16px, 2.4vw, 32px) 80px; max-width: 1320px; align-items: start; }
-.onb-cover { position: sticky; top: 84px; padding-right: 8%; } .onb-cover .cd { width: 100%; } .onb-hint { margin: 18px 0 0; font: 400 .7rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.onb-cover { position: sticky; top: 84px; padding-right: 16%; } .onb-cover .cd { width: 100%; } .onb-hint { margin: 18px 0 0; font: 400 .7rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
 .onb-side { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .onb-main { max-width: 820px; min-width: 0; }
 .onb-kicker { margin: 0 0 14px; font: 400 .72rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--mentor); }

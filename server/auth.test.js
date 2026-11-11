@@ -110,13 +110,23 @@ test('Google sign-in: state check, new account, relinking, hijack protection, su
   assert.equal((await hit(`/auth/google/callback?code=abc&state=${state}`)).loc, '/login?error=google_failed'); // no state cookie
   assert.equal((await hit('/auth/google/callback?error=access_denied')).loc, '/login?error=google_cancelled');
 
-  // new person: account is created verified, signed in, can reach /me
+  // new person: nothing is created until they choose a unique ID; then the account is verified and signed in
   const email = `g1-${run}@test.local`; claims(email, `sub1-${run}`);
-  const ok = await cb(); assert.equal(ok.loc, '/dashboard');
-  const sess = ok.cookies.find((c) => c.startsWith('ss_') || !c.startsWith('g_state'));
-  const me = await call('/me', 'GET', undefined, sess); assert.equal(me.status, 200); assert.equal(me.body.user.email, email);
-  assert.equal((await cb()).loc, '/dashboard'); // same Google account again: same user
+  const first = await cb(); assert.equal(first.loc, '/choose-id');
+  const pend = first.cookies.find((c) => c.startsWith('g_pending=')); assert.ok(pend);
+  assert.equal((await pool.query('SELECT 1 FROM users WHERE email = ?', [email]))[0].length, 0);
+  assert.equal((await call('/google/pending', 'GET', undefined, pend)).body.email, email);
+  assert.equal((await call('/google/pending')).status, 404);
+  assert.equal((await call('/google/complete', 'POST', { username: 'free_name_1' })).status, 401); // no pending sign-up
+  assert.equal((await call('/google/complete', 'POST', { username: 'No Good!' }, pend)).status, 400);
+  const taken = await call('/google/complete', 'POST', { username: U('dup').username.toUpperCase() }, pend);
+  assert.equal(taken.status, 409); assert.equal(taken.body.error, 'username_taken'); assert.ok(taken.body.suggestions.length > 0);
+  const gname = `g${run}`.slice(0, 20);
+  const done = await call('/google/complete', 'POST', { username: gname }, pend); assert.equal(done.status, 201);
+  const me = await call('/me', 'GET', undefined, done.cookie); assert.equal(me.status, 200); assert.equal(me.body.user.email, email); assert.equal(me.body.user.username, gname);
+  assert.equal((await cb()).loc, '/dashboard'); // same Google account again: straight in
   const [[n]] = await pool.query('SELECT COUNT(*) c, COUNT(email_verified_at) v FROM users WHERE email = ?', [email]); assert.equal(Number(n.c), 1); assert.equal(Number(n.v), 1);
+  assert.equal((await call('/google/complete', 'POST', { username: `h${run}`.slice(0, 20) }, pend)).body.error, 'already_registered'); // double submit
 
   // existing password account with the same email gets linked; an UNVERIFIED one loses its password (pre-hijack protection)
   const u = U('gh'); await call('/register', 'POST', u);

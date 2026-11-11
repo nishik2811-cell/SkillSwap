@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { pool } from '../db.js';
-import { hashPassword, verifyPassword, newToken, sha256, signSocketToken } from './crypto.js';
+import { hashPassword, verifyPassword, newToken, sha256, signSocketToken, signPayload, readPayload } from './crypto.js';
 import { sendMail, actionMail } from './mail.js';
 import { COOKIE, requireAuth } from './middleware.js';
 import { google, configured as googleConfigured, authUrl as googleAuthUrl } from './google.js';
@@ -52,11 +52,11 @@ async function suggest(base) {
   const list = [...cands].filter((c) => /^[a-z0-9_]{3,20}$/.test(c));
   const [rows] = await pool.query('SELECT username FROM users WHERE username IN (?)', [list]);
   const taken = new Set(rows.map((r) => r.username.toLowerCase()));
-  return list.filter((c) => !taken.has(c)).slice(0, 4);
+  return list.filter((c) => !taken.has(c)).slice(0, 3);
 }
 
 // ---- Sign in with Google ----
-const GSTATE = 'g_state', GPATH = '/api/v1/auth/google';
+const GSTATE = 'g_state', GPENDING = 'g_pending', GPATH = '/api/v1/auth/google';
 router.get('/providers', (_req, res) => res.json({ google: googleConfigured() }));
 
 router.get('/google', (_req, res) => {
@@ -84,20 +84,38 @@ router.get('/google/callback', wrap(async (req, res) => {
       if (!u.email_verified_at) await pool.query('DELETE FROM auth_sessions WHERE user_id = ?', [u.id]);
     }
   }
-  if (!u) {
-    const local = email.split('@')[0].replace(/[^a-z0-9_]/g, '_'), base = (local.length >= 3 ? local : `${local}user`).slice(0, 20);
-    for (let i = 0; !u && i < 5; i++) {
-      try {
-        const [r] = await pool.query('INSERT INTO users (email, username, password_hash, full_name, email_verified_at, google_sub) VALUES (?,?,?,?,NOW(),?)',
-          [email, i ? `${base.slice(0, 16)}${Math.floor(100 + Math.random() * 900)}` : base, hashPassword(newToken()), String(c.name || local).slice(0, 100), c.sub]); // no one knows this password; "Forgot password" can set one
-        u = { id: r.insertId, status: 'active' };
-      } catch (e) { if (e.code !== 'ER_DUP_ENTRY' || !String(e.sqlMessage).includes('uq_users_username')) throw e; }
-    }
-    if (!u) return fail('google_failed');
+  if (!u) { // a new person: nothing is created until they pick their own unique ID on /choose-id
+    res.cookie(GPENDING, signPayload('google-signup', { sub: c.sub, email, name: String(c.name || '').slice(0, 100) }, 15 * 60),
+      { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60e3, path: GPATH });
+    return res.redirect('/choose-id');
   }
   if (u.status !== 'active') return fail('account_inactive');
   await startSession(res, u.id);
   res.redirect('/dashboard');
+}));
+
+router.get('/google/pending', (req, res) => {
+  const p = readPayload('google-signup', req.cookies?.[GPENDING]);
+  if (!p) return res.status(404).json({ error: 'no_pending_signup' });
+  res.json({ email: p.email, name: p.name });
+});
+
+router.post('/google/complete', wrap(async (req, res) => {
+  const p = readPayload('google-signup', req.cookies?.[GPENDING]);
+  if (!p) return res.status(401).json({ error: 'signup_expired' });
+  const d = parse(z.object({ username }), req.body, res); if (!d) return;
+  let id;
+  try {
+    [{ insertId: id }] = await pool.query('INSERT INTO users (email, username, password_hash, full_name, email_verified_at, google_sub) VALUES (?,?,?,?,NOW(),?)',
+      [p.email, d.username, hashPassword(newToken()), (p.name || p.email.split('@')[0]).slice(0, 100), p.sub]); // nobody knows this password; "Forgot password" can set one
+  } catch (e) {
+    if (e.code !== 'ER_DUP_ENTRY') throw e;
+    if (String(e.sqlMessage).includes('uq_users_username')) return res.status(409).json({ error: 'username_taken', suggestions: await suggest(d.username) });
+    return res.status(409).json({ error: 'already_registered' }); // this email or Google account got an account in the meantime: signing in with Google again links it
+  }
+  await startSession(res, id);
+  res.clearCookie(GPENDING, { path: GPATH });
+  res.status(201).json({ ok: true });
 }));
 
 router.get('/username-available', wrap(async (req, res) => {
