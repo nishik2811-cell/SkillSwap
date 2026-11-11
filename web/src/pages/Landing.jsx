@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useSkills } from '../lib.js';
@@ -23,7 +23,8 @@ const TRACKS = [
 
 export default function Landing() {
   const { user, logout } = useAuth();
-  const skills = useSkills();
+  const all = useSkills(); // the record and the sleeve show an even sample, not all of the catalogue
+  const skills = useMemo(() => { const step = Math.ceil(all.length / 24) || 1; return all.filter((_, i) => i % step === 0); }, [all]);
   const [theme, toggleTheme] = useTheme();
   const [side, setSide] = useState('A');
   const [time, setTime] = useState(clock);
@@ -126,6 +127,7 @@ export default function Landing() {
                 <ul>{list.map((s, i) => <li key={s.id}><Link to={href(s)}><span className="moa-mono">{String(c * half + i + 1).padStart(2, '0')}</span><b>{s.name}</b><span className="moa-mono">{s.category}</span></Link></li>)}</ul></div>
             ))}
           </div>
+          <p><Link className="cta line" to={user ? '/discover' : '/register'}>Browse all {all.length} skills</Link></p>
         </section>
       )}
 

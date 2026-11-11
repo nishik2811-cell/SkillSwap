@@ -4,9 +4,13 @@ import { Field, Avatar } from './UI.jsx';
 import { LEVELS, STYLES, DAYS, PARTS, LANGUAGES, cap, useSkills } from '../lib.js';
 
 function SkillPicker({ skills, selected, onToggle, tone }) {
-  const cats = [...new Set(skills.map((s) => s.category))];
-  return <div className="stack">{cats.map((c) => <div key={c}><div className="tag muted">{c}</div><div className="row" style={{ marginTop: 6 }}>
-    {skills.filter((s) => s.category === c).map((s) => <button type="button" key={s.id} className="chip" aria-pressed={selected.includes(String(s.id))} onClick={() => onToggle(s.id)}>{s.name}</button>)}
+  const [q, setQ] = useState(''); const needle = q.trim().toLowerCase();
+  const shown = needle ? skills.filter((s) => `${s.name} ${s.category}`.toLowerCase().includes(needle)) : skills;
+  const cats = [...new Set(shown.map((s) => s.category))];
+  return <div className="stack"><input type="search" aria-label="Search skills" placeholder={`Search ${skills.length} skills…`} value={q} onChange={(e) => setQ(e.target.value)} />
+    {needle && !cats.length && <p className="hint">No skill matches "{q.trim()}". Ask an admin to add it.</p>}
+    {cats.map((c) => <div key={c}><div className="tag muted">{c}</div><div className="row" style={{ marginTop: 6 }}>
+    {shown.filter((s) => s.category === c).map((s) => <button type="button" key={s.id} className="chip" aria-pressed={selected.includes(String(s.id))} onClick={() => onToggle(s.id)}>{s.name}</button>)}
   </div></div>)}</div>;
 }
 const sel = (v, set, opts) => <select value={v} onChange={(e) => set(e.target.value)}>{opts.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>;
