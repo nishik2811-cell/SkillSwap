@@ -8,6 +8,7 @@ import Record3D, { magAt } from '../components/Record3D.jsx';
 import Macro from '../components/Macro.jsx';
 import SideB from '../components/SideB.jsx';
 import CassetteTimeline from '../components/CassetteTimeline.jsx';
+import About from '../components/About.jsx';
 import DragChip from '../components/DragChip.jsx';
 import './landing-extra.css';
 import './landing.css';
@@ -113,6 +114,7 @@ export default function Landing() {
         </div>
       </div>
 
+      <About />
       <CassetteTimeline />
 
       {skills?.length > 0 && (
