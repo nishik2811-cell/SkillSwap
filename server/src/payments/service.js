@@ -205,12 +205,15 @@ export async function expireUnpaidBookings() {
 }
 
 // ---------- earnings & payouts (mentor side) ----------
-// Only payments whose booking is still active count. "Available" = session completed; "pending" = session not held yet.
+// Every kept payment counts: a booking the learner cancelled too late for a refund still pays the mentor (the policy's whole point).
+// Anything with a refund on it (pending, done, or failed and being retried) belongs to the learner. "Available" = session completed; "pending" = not held yet.
+// ponytail: a partial admin refund removes the whole payment from earnings; subtract refunded amounts instead if partial refunds become common.
 const EARN_SQL = `SELECT
     COALESCE(SUM(p.amount_paise),0) gross, COALESCE(SUM(p.platform_fee_paise),0) fees, COALESCE(SUM(p.mentor_net_paise),0) net,
     COALESCE(SUM(CASE WHEN s.status = 'completed' THEN p.mentor_net_paise ELSE 0 END),0) available, COALESCE(SUM(CASE WHEN s.status = 'scheduled' THEN p.mentor_net_paise ELSE 0 END),0) pending, COUNT(*) sales
   FROM payments p JOIN bookings b ON b.id = p.booking_id JOIN learning_sessions s ON s.id = b.session_id
-  WHERE p.mentor_id = ? AND p.status = 'paid' AND b.status IN ('confirmed','completed')`;
+  WHERE p.mentor_id = ? AND p.status = 'paid' AND s.status <> 'cancelled' AND b.status IN ('confirmed','completed','cancelled')
+    AND NOT EXISTS (SELECT 1 FROM refunds r WHERE r.payment_id = p.id)`;
 
 async function balanceOf(conn, userId) {
   const [[e]] = await conn.query(EARN_SQL, [userId]);

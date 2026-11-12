@@ -174,6 +174,7 @@ test('refund policy: learner cancel inside/outside window, mentor cancel, mentor
   c = await call(`/bookings/${await s.bid(s.learner)}/cancel`, 'POST', {}, s.learner);
   assert.equal(c.body.refund.refunded, false);
   assert.equal((await row("SELECT p.status FROM payments p JOIN bookings b ON b.id = p.booking_id WHERE b.session_id = ?", [s.sid])).status, 'paid');
+  assert.equal((await call('/earnings', 'GET', null, s.mentor)).body.summary.pendingPaise, 50000); // the mentor still earns their price for the late cancel
   // mentor cancels the session: every paid learner is refunded in full, whatever the timing
   s = await setup('g', { learners: 2 }); for (const l of s.ls) await pay(l, s);
   assert.equal((await call(`/sessions/${s.sid}/cancel`, 'POST', { reason: 'ill' }, s.mentor)).status, 200);
