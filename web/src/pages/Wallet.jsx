@@ -77,7 +77,7 @@ function Earnings() {
       {d.sales.map((p) => <div key={p.id} className="row" style={{ justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
         <div><Link to={`/sessions/${p.session.id}`}>{p.session.title}</Link><div className="hint">{p.learner.fullName} · {when(p.paidAt)} · <span className="chip static">{CHIP[p.status]}</span></div></div>
         <div style={{ textAlign: 'right' }}><b>{rupees(p.mentorNetPaise)}</b></div></div>)}</section>
-    <section><h3>Payouts</h3>{d.payouts.length === 0 && <p className="muted">No payouts yet.</p>}
+    <section><h3>Payouts</h3><p className="hint" style={{ marginTop: 0 }}>The SkillSwap team sends each request to your UPI ID or bank, usually within 2–3 working days. It shows Paid once it's sent.</p>{d.payouts.length === 0 && <p className="muted">No payouts yet.</p>}
       {d.payouts.map((x) => <div key={x.id} className="row" style={{ justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
         <div>{rupees(x.amountPaise)} <span className="hint">to {x.destination} · {when(x.requestedAt)}</span>{x.adminNote && <div className="hint">{x.adminNote}</div>}</div><span className="chip static">{CHIP[x.status]}</span></div>)}</section>
   </div>;

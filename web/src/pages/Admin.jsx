@@ -114,6 +114,7 @@ function Disputes({ setErr }) {
 function Payouts({ setErr }) {
   const [st, setSt] = useState('requested'); const [d, reload] = useLoad(`/admin/payouts?status=${st}`, setErr), act = useAct(setErr, reload);
   return <div className="stack"><StatusSeg value={st} set={setSt} options={['requested', 'paid', 'rejected']} />
+    <p className="hint" style={{ margin: 0 }}>Learner payments reach the bank account linked to Razorpay about 2 working days after payment (Razorpay dashboard → Settlements). SkillSwap doesn't transfer money itself: send the amount to the mentor's UPI ID or bank from your UPI or banking app first, then click Mark as paid.</p>
     {!d ? <div className="skeleton" /> : d.payouts.length === 0 ? <Empty>No payouts.</Empty> : d.payouts.map((p) => <article key={p.id} className="card">
       <div className="row between"><b>{p.mentor.fullName} (@{p.mentor.username})</b><b>{rupees(p.amountPaise)}</b></div><div className="hint">Send to: {p.destination} · requested {when(p.requestedAt)}{p.adminNote ? ` · ${p.adminNote}` : ''}</div>
       {st === 'requested' && <div className="row"><button className="btn small" onClick={() => act(`/admin/payouts/${p.id}/pay`, 'POST', {}, 'Transfer reference (optional). Only click OK after you have sent the money:')}>Mark as paid</button>
