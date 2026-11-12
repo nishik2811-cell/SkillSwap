@@ -1,25 +1,26 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth.jsx';
 import { SocialProvider } from './social.jsx';
-import Wallet from './pages/Wallet.jsx';
-import Receipt from './pages/Receipt.jsx';
-import Meetings from './pages/Meetings.jsx';
-import Room from './pages/Room.jsx';
-import Sessions from './pages/Sessions.jsx';
-import SessionNew from './pages/SessionNew.jsx';
-import SessionDetail from './pages/SessionDetail.jsx';
-import Messages from './pages/Messages.jsx';
-import Connections from './pages/Connections.jsx';
-import Notifications from './pages/Notifications.jsx';
+const Wallet = lazy(() => import('./pages/Wallet.jsx'));
+const Receipt = lazy(() => import('./pages/Receipt.jsx'));
+const Meetings = lazy(() => import('./pages/Meetings.jsx'));
+const Room = lazy(() => import('./pages/Room.jsx'));
+const Sessions = lazy(() => import('./pages/Sessions.jsx'));
+const SessionNew = lazy(() => import('./pages/SessionNew.jsx'));
+const SessionDetail = lazy(() => import('./pages/SessionDetail.jsx'));
+const Messages = lazy(() => import('./pages/Messages.jsx'));
+const Connections = lazy(() => import('./pages/Connections.jsx'));
+const Notifications = lazy(() => import('./pages/Notifications.jsx'));
 import { Nav } from './components/UI.jsx';
-import Landing from './pages/Landing.jsx';
+const Landing = lazy(() => import('./pages/Landing.jsx'));
 import { Register, Login, ChooseId, VerifyEmail, ForgotPassword, ResetPassword } from './pages/AuthPages.jsx';
-import Onboarding from './pages/Onboarding.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Discover from './pages/Discover.jsx';
-import Profile from './pages/Profile.jsx';
-import Settings from './pages/Settings.jsx';
-import Admin from './pages/Admin.jsx';
+const Onboarding = lazy(() => import('./pages/Onboarding.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Discover = lazy(() => import('./pages/Discover.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const Admin = lazy(() => import('./pages/Admin.jsx'));
 import { Terms, Privacy, Refunds, Contact } from './pages/Legal.jsx';
 
 function Protected({ children }) {
@@ -34,7 +35,7 @@ function AdminOnly({ children }) { const { user } = useAuth(); return user?.role
 const P = (el) => <Protected>{el}</Protected>;
 
 export default function App() {
-  return <BrowserRouter><AuthProvider><SocialProvider><Nav /><Routes>
+  return <BrowserRouter><AuthProvider><SocialProvider><Nav /><Suspense fallback={<div className="center"><p>Loading…</p></div>}><Routes>
     <Route path="/" element={<Landing />} />
     <Route path="/register" element={<Register />} /><Route path="/login" element={<Login />} /><Route path="/choose-id" element={<ChooseId />} />
     <Route path="/verify-email" element={<VerifyEmail />} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/reset-password" element={<ResetPassword />} />
@@ -43,5 +44,5 @@ export default function App() {
     <Route path="/admin" element={P(<AdminOnly><Admin /></AdminOnly>)} />
     <Route path="/terms" element={<Terms />} /><Route path="/privacy" element={<Privacy />} /><Route path="/refunds" element={<Refunds />} /><Route path="/contact" element={<Contact />} />
     <Route path="*" element={<div className="center"><h2>Page not found</h2></div>} />
-  </Routes></SocialProvider></AuthProvider></BrowserRouter>;
+  </Routes></Suspense></SocialProvider></AuthProvider></BrowserRouter>;
 }

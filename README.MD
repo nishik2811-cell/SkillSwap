@@ -74,8 +74,9 @@ SkillSwap makes it a fair exchange:
 ### Payments and earnings
 
 - **Secure checkout with Razorpay** (cards, UPI, netbanking). SkillSwap never sees card details.
-- **Fair refunds, automatically.** Cancel 24 hours or more before a session for a full refund, and you're always refunded if the Mentor cancels. Disputes go to a person.
-- **Mentors get paid out** to the UPI ID or bank account they save in Settings. Receipts and earnings live in the Wallet.
+- **Mentors keep their whole price.** Learners see the price plus a small platform fee and GST on that fee, broken down before they pay.
+- **Fair refunds, automatically.** Cancel 45 minutes or more before a session for a full refund (fee and GST included), and you're always refunded if the Mentor cancels. Disputes go to a person.
+- **Mentors get paid out** to the UPI ID or bank account they save in Settings, with no minimum withdrawal, once at least a third of the session has taken place. Receipts and earnings live in the Wallet.
 
 ### Accounts and safety
 

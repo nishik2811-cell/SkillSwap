@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, errorText } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Alert } from './UI.jsx';
-import { rupees } from '../lib.js';
+import { rupees, usePayConfig, feesFor } from '../lib.js';
 
 let scriptPromise;
 const loadCheckout = () => scriptPromise ||= new Promise((resolve, reject) => {
@@ -27,6 +27,7 @@ const msg = (e) => TEXT[e.message] || errorText(e);
 /** Starts checkout for a booking that is waiting for payment. Access is granted by the SERVER after it
  *  verifies the payment with the gateway; this component only opens the payment window and reports back. */
 export default function PayButton({ bookingId, title, amountPaise, onPaid }) {
+  const cfg = usePayConfig(); const f = cfg && feesFor(amountPaise, cfg); // shown up front; the server computes the real total
   const { user } = useAuth(); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [info, setInfo] = useState('');
   async function pay() {
     setErr(''); setInfo(''); setBusy(true);
@@ -51,7 +52,8 @@ export default function PayButton({ bookingId, title, amountPaise, onPaid }) {
   }
   return <div className="stack" style={{ gap: 10 }}>
     <Alert>{err}</Alert><Alert kind="ok">{info}</Alert>
-    <div><button className="btn accent pay-btn" disabled={busy} onClick={pay}>{busy ? 'Opening secure payment…' : `Pay ${rupees(amountPaise)}`}</button></div>
+    <div><button className="btn accent pay-btn" disabled={busy} onClick={pay}>{busy ? 'Opening secure payment…' : `Pay ${rupees(f ? f.total : amountPaise)}`}</button></div>
+    {f && <p className="hint" style={{ margin: 0 }}>{rupees(amountPaise)} session + {rupees(f.fee)} platform fee + {rupees(f.gst)} GST ({cfg.gstPercent}% on the fee)</p>}
     <p className="hint pay-note"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
       Secure checkout by Razorpay. SkillSwap never sees or stores your card details. <Link to="/refunds">Refund policy</Link></p>
   </div>;

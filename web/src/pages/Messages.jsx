@@ -5,6 +5,7 @@ import { useAuth } from '../auth.jsx';
 import { useSocial } from '../social.jsx';
 import { Alert, Avatar, STATUS_LABEL } from '../components/UI.jsx';
 import WhenPicker from '../components/WhenPicker.jsx';
+import PaymentRequest from '../components/PaymentRequest.jsx';
 import './chat.css';
 
 // "📅 Title / When: … / Join: …/room/<code>" messages (sent by the schedule form) render as a card with a Join button
@@ -13,7 +14,9 @@ const linkify = (t) => t.split(/(https?:\/\/\S+)/).map((p, i) => (i % 2 ? <a key
 const hm = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const day = (d) => new Date(d).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
 const size = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-const preview = (m) => !m ? 'No messages yet' : m.deleted ? 'Message deleted' : (meetingOf(m.body) ? `📅 ${meetingOf(m.body).title}` : m.body) || (m.attachments.length ? '📎 Attachment' : '');
+// "₹ Title / When: … / Price: … / Pay: …/sessions/<id>" messages (sent by the payment request) render as a card with a Pay & book button
+const payReqOf = (t) => { const m = /^₹ (.+)\r?\nWhen: (.+)\r?\nPrice: (.+)\r?\nPay: \S+\/sessions\/(\d+)\s*$/u.exec(t || ''); return m && { title: m[1], when: m[2], price: m[3], sid: m[4] }; };
+const preview = (m) => !m ? 'No messages yet' : m.deleted ? 'Message deleted' : (meetingOf(m.body) ? `📅 ${meetingOf(m.body).title}` : payReqOf(m.body) ? `₹ ${payReqOf(m.body).title}` : m.body) || (m.attachments.length ? '📎 Attachment' : '');
 
 export default function Messages() {
   const { id } = useParams(); const nav = useNavigate();
@@ -86,7 +89,7 @@ function Thread({ id, onGone, onChanged }) {
   const { user } = useAuth(); const { socket } = useSocial();
   const [info, setInfo] = useState(null); const [msgs, setMsgs] = useState([]); const [hasMore, setHasMore] = useState(false); const [err, setErr] = useState('');
   const [text, setText] = useState(''); const [files, setFiles] = useState([]); const [busy, setBusy] = useState(false); const [typers, setTypers] = useState({}); const [showInfo, setShowInfo] = useState(false);
-  const [sched, setSched] = useState(null); const [edit, setEdit] = useState(null); const [pick, setPick] = useState(0); const [q, setQ] = useState(null); const [found, setFound] = useState(null);   // edit: {id, text}; pick: message with the emoji row open; q: null = search closed
+  const [sched, setSched] = useState(null); const [payReq, setPayReq] = useState(false); const [edit, setEdit] = useState(null); const [pick, setPick] = useState(0); const [q, setQ] = useState(null); const [found, setFound] = useState(null);   // edit: {id, text}; pick: message with the emoji row open; q: null = search closed
   const bottom = useRef(); const box = useRef(); const lastTyping = useRef(0); const stick = useRef(true);
 
   const loadInfo = useCallback(() => api(`/conversations/${id}`).then(setInfo), [id]);
@@ -142,6 +145,11 @@ function Thread({ id, onGone, onChanged }) {
     finally { setBusy(false); }
   }
   const fail = (x) => setErr(errorText(x));
+  async function sendCard(body) { // posts a ready-made card message (payment request) and shows it straight away
+    const form = new FormData(); form.append('body', body);
+    const m = await api(`/conversations/${id}/messages`, { method: 'POST', form });
+    stick.current = true; setMsgs((l) => (l.some((x) => x.id === m.id) ? l : [...l, m])); onChanged();
+  }
   async function schedule(e) { // a room with a start time, then a normal chat message carrying the time and link
     e.preventDefault(); if (busy || !sched.when) return; setBusy(true); setErr('');
     try {
@@ -198,7 +206,7 @@ function Thread({ id, onGone, onChanged }) {
                 {edit?.id === m.id
                   ? <form className="stack" onSubmit={saveEdit}><textarea autoFocus aria-label="Edit message" rows={2} maxLength={4000} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setEdit(null)} />
                     <div className="row"><button className="btn small accent" disabled={!edit.text.trim()}>Save</button><button type="button" className="btn small ghost" onClick={() => setEdit(null)}>Cancel</button></div></form>
-                  : m.body && (meetingOf(m.body) ? (({ title, when, code }) => <div className="meet-card"><span className="mk">Meeting</span><b>{title}</b><span className="mw">{when}</span><Link className="btn small" to={`/room/${code}`}>Join meeting</Link></div>)(meetingOf(m.body)) : <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{linkify(m.body)}</div>)}
+                  : m.body && (payReqOf(m.body) ? (({ title, when, price, sid }) => <div className="meet-card pay-card"><span className="mk">Payment request</span><b>{title}</b><span className="mw">{when}</span><span className="mw">{mine ? price.replace(/ \+ fees$/, '') : price}</span><Link className="btn small" to={`/sessions/${sid}`}>{mine ? 'View session' : 'Pay & book'}</Link></div>)(payReqOf(m.body)) : meetingOf(m.body) ? (({ title, when, code }) => <div className="meet-card"><span className="mk">Meeting</span><b>{title}</b><span className="mw">{when}</span><Link className="btn small" to={`/room/${code}`}>Join meeting</Link></div>)(meetingOf(m.body)) : <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{linkify(m.body)}</div>)}
                 {m.attachments.map((a) => a.mime.startsWith('image/')
                   ? <a key={a.id} href={a.url} target="_blank" rel="noreferrer"><img className="att-img" src={a.url} alt={a.name} loading="lazy" /></a>
                   : <a key={a.id} className="att" href={a.url} download>📎 {a.name} <span className="hint">{size(a.size)}</span></a>)}</>}
@@ -217,6 +225,7 @@ function Thread({ id, onGone, onChanged }) {
         <div ref={bottom} />
       </div>
       <Alert>{err}</Alert>
+      {payReq && direct && <PaymentRequest to={direct.username} onSend={sendCard} onClose={() => setPayReq(false)} />}
       {sched && <form className="panel stack" onSubmit={schedule}><b>Schedule a meeting</b>
         <label className="field" style={{ margin: 0 }}>Title<input placeholder="e.g. Guitar basics (optional)" maxLength={120} value={sched.title} onChange={(e) => setSched({ ...sched, title: e.target.value })} /></label>
         <label className="field" style={{ margin: 0 }}>Date and time
@@ -225,6 +234,7 @@ function Thread({ id, onGone, onChanged }) {
       <form className="composer" onSubmit={send}>
         {files.length > 0 && <div className="row">{files.map((f, i) => <span key={i} className="chip static">{f.name} <button type="button" className="linkbtn" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>✕</button></span>)}</div>}
         <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'flex-end' }}>
+          {direct && <button type="button" className="btn small ghost icon-btn rupee-btn" aria-label="Request a payment" title="Request a payment" aria-pressed={payReq} onClick={() => { setPayReq(!payReq); setSched(null); }}>₹</button>}
           <button type="button" className="btn small ghost icon-btn" aria-label="Schedule a meeting" title="Schedule a meeting" aria-pressed={!!sched} onClick={() => setSched(sched ? null : { title: '', when: '' })}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg></button>
           <label className="btn small ghost icon-btn" style={{ margin: 0 }} aria-label="Attach files" title="Attach files"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" /></svg><input type="file" multiple hidden onChange={(e) => setFiles([...files, ...e.target.files].slice(0, 5))} /></label>
           <textarea aria-label="Message" rows={1} maxLength={4000} placeholder="Message…" value={text} onChange={(e) => typing(e.target.value)}

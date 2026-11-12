@@ -28,3 +28,6 @@
 .btn svg { flex: none; } .icon-btn svg { width: 22px; height: 22px; }
 .composer .icon-btn { width: 42px; min-width: 42px; height: 42px; min-height: 42px; border-radius: 50%; }
 .composer textarea { flex: 1; min-width: 0; }
+.composer .rupee-btn { font: 600 1.15rem var(--font-ui); letter-spacing: 0; }
+.pay-card .mw + .mw { font-weight: 600; opacity: 1; }
+.pay-req-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

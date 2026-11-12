@@ -1,3 +1,4 @@
+import { useAuth } from '../auth.jsx';
 import { Link } from 'react-router-dom';
 import { rupees } from '../lib.js';
 
@@ -14,12 +15,13 @@ export function Stars({ value, onChange }) {
 }
 
 export function SessionCard({ s, showMentor = true }) {
+  const { user } = useAuth(); // the fee note is for learners only
   return <article className="card">
     <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
       <div><span className={`tag ${s.kind === 'group' ? 'learner' : 'mentor'}`}>{s.kind === 'group' ? `Group · ${s.capacity} seats` : 'One-on-one'}</span>
         {new Date(s.startsAt) <= new Date() && s.status === 'scheduled' && <span className="tag live">● Live now</span>}{s.visibility === 'private' && <span className="tag">Private</span>}
         <h3 style={{ margin: '4px 0' }}><Link to={`/sessions/${s.id}`}>{s.title}</Link></h3></div>
-      <b>{priceOf(s)}</b>
+      <div style={{ textAlign: 'right' }}><b>{priceOf(s)}</b>{s.pricing === 'paid' && s.mentor?.username !== user?.username && <div className="hint" style={{ margin: 0 }}>+ fee & GST</div>}</div>
     </div>
     <div className="muted">{when(s.startsAt)} · {s.durationMin} min · {s.skill}</div>
     {showMentor && s.mentor && <div className="hint">with <Link to={`/u/${s.mentor.username}`}>{s.mentor.fullName}</Link>{s.mentor.rating?.count ? ` · ★ ${s.mentor.rating.avg.toFixed(1)} (${s.mentor.rating.count})` : ''}</div>}

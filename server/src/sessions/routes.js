@@ -199,7 +199,7 @@ router.post('/sessions/:id/complete', handle(async (req, res) => {
     const s = await lockSession(conn, Number(req.params.id));
     if (!s || s.mentor_id !== req.user.id) throw err(404, 'not_found');
     if (s.status !== 'scheduled') throw err(409, 'not_completable');
-    if (new Date(s.starts_at).getTime() > Date.now()) throw err(409, 'not_started_yet');
+    if (new Date(s.starts_at).getTime() + (s.duration_min * 60_000) / 3 > Date.now()) throw err(409, 'not_started_yet'); // a third of the session must have passed before the mentor is paid
     title = s.title;
     learners = (await conn.query("SELECT learner_id FROM bookings WHERE session_id = ? AND status = 'confirmed'", [s.id]))[0];
     await conn.query("UPDATE bookings SET status = 'completed' WHERE session_id = ? AND status = 'confirmed'", [s.id]);

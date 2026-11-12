@@ -33,8 +33,8 @@ export function Terms() {
     <h2>Payments and fees</h2>
     <ul>
       <li>Payments are processed by Razorpay. SkillSwap never sees or stores your card or UPI PIN details.</li>
-      <li>The price is shown before you pay. SkillSwap keeps a platform fee (currently 10%) and the rest goes to the Mentor.</li>
-      <li>Mentors are paid out to the payout details they save in Settings, after the session has taken place.</li>
+      <li>Mentors set their price and receive all of it. Learners pay a platform fee on top (currently 10% of the price) plus GST on that fee (currently 18%). The full breakdown is shown before you pay.</li>
+      <li>A session counts as held once at least a third of it has taken place. Mentors are then paid out to the payout details they save in Settings; there is no minimum withdrawal.</li>
       <li>Refunds follow our <Link to="/refunds">Refunds &amp; cancellations policy</Link>.</li>
     </ul>
     <h2>Behaving well</h2>
@@ -85,8 +85,8 @@ export function Refunds() {
     <p>These rules apply to paid Learning Sessions. Refunds are automatic in the cases below; you don't need to ask.</p>
     <h2>If you are the Learner</h2>
     <ul>
-      <li><b>Cancel at least 24 hours before the start:</b> full refund.</li>
-      <li><b>Cancel less than 24 hours before the start:</b> no automatic refund, because the Mentor has kept that time for you.</li>
+      <li><b>Cancel at least 45 minutes before the start:</b> full refund, including the platform fee and GST.</li>
+      <li><b>Cancel less than 45 minutes before the start:</b> no automatic refund, because the Mentor has kept that time for you.</li>
       <li><b>Booking not paid in time:</b> an accepted booking that stays unpaid is released and nothing is charged.</li>
     </ul>
     <h2>If the Mentor cancels</h2>

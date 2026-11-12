@@ -13,7 +13,7 @@ export default function PersonCard({ u, role = 'mentor', dim }) {
   const days = [...new Set((u.availability || []).map((s) => s.weekday))].sort().map((d) => DAYS[d]).join(' ');
   const skills = u.matchedSkills || (role === 'mentor' ? u.mentorSkills : u.learnerSkills).map((s) => s.skill);
   const why = u.reasons || [];
-  const inert = (on) => (on ? { inert: '' } : {});
+  const inert = (on) => (on ? { inert: true } : {}); // React 19 takes a real boolean
   return (
     <div className={`cd person${dim ? ' dim' : ''}${flip ? ' flipped' : ''}`} style={{ '--cover': bg }}>
       <div className="cd-disc" aria-hidden="true" />

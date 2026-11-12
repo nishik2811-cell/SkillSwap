@@ -61,23 +61,22 @@ function Earnings() {
       <Stat label="Available to withdraw" value={rupees(s.balancePaise)} hint="From sessions you've completed" />
       <Stat label="Coming up" value={rupees(s.pendingPaise)} hint="Paid, session not held yet" />
       <Stat label="Paid out" value={rupees(s.paidOutPaise)} hint={s.requestedPaise ? `${rupees(s.requestedPaise)} requested` : undefined} />
-      <Stat label="Platform fees" value={rupees(s.feesPaise)} hint={`on ${rupees(s.grossPaise)} collected`} />
     </div>
     <form className="card stack" onSubmit={request}>
       <h3>Request a payout</h3>
       <div className="filters">
-        <div><label htmlFor="po-a">Amount (₹)</label><input id="po-a" type="number" min={s.minPayoutPaise / 100} step="1" required value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        <div><label htmlFor="po-a">Amount (₹)</label><input id="po-a" type="number" min={Math.max(1, s.minPayoutPaise / 100)} step="1" required value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
         {pm ? <div><label>Paid to</label><p style={{ margin: '10px 0 0' }}><b>{describePayout(pm)}</b> · <Link to="/settings#payout">Change</Link></p></div>
           : <div><label htmlFor="po-d">UPI ID or bank reference</label><input id="po-d" required minLength={3} maxLength={120} value={dest} onChange={(e) => setDest(e.target.value)} placeholder="name@upi" />
             <div className="hint">Or <Link to="/settings#payout">save your payout details</Link> once.</div></div>}
       </div>
-      <div><button className="btn" disabled={busy || s.balancePaise < s.minPayoutPaise}>{busy ? 'Requesting…' : 'Request payout'}</button>
-        <p className="hint" style={{ margin: '10px 0 0' }}>Minimum {rupees(s.minPayoutPaise)}. Payouts are sent by the team, usually within a few working days.</p></div>
+      <div><button className="btn" disabled={busy || s.balancePaise <= 0 || s.balancePaise < s.minPayoutPaise}>{busy ? 'Requesting…' : 'Request payout'}</button>
+        <p className="hint" style={{ margin: '10px 0 0' }}>{s.minPayoutPaise > 0 ? `Minimum ${rupees(s.minPayoutPaise)}. ` : 'Withdraw any amount up to your balance. '}Payouts are sent by the team, usually within a few working days.</p></div>
     </form>
     <section><h3>Sales</h3>{d.sales.length === 0 && <p className="muted">No paid bookings yet.</p>}
       {d.sales.map((p) => <div key={p.id} className="row" style={{ justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
         <div><Link to={`/sessions/${p.session.id}`}>{p.session.title}</Link><div className="hint">{p.learner.fullName} · {when(p.paidAt)} · <span className="chip static">{CHIP[p.status]}</span></div></div>
-        <div style={{ textAlign: 'right' }}><b>{rupees(p.mentorNetPaise)}</b><div className="hint">of {rupees(p.amountPaise)} · fee {rupees(p.platformFeePaise)}</div></div></div>)}</section>
+        <div style={{ textAlign: 'right' }}><b>{rupees(p.mentorNetPaise)}</b></div></div>)}</section>
     <section><h3>Payouts</h3>{d.payouts.length === 0 && <p className="muted">No payouts yet.</p>}
       {d.payouts.map((x) => <div key={x.id} className="row" style={{ justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
         <div>{rupees(x.amountPaise)} <span className="hint">to {x.destination} · {when(x.requestedAt)}</span>{x.adminNote && <div className="hint">{x.adminNote}</div>}</div><span className="chip static">{CHIP[x.status]}</span></div>)}</section>

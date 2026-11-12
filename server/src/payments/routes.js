@@ -28,7 +28,8 @@ const bad = (res, err) => res.status(400).json({ error: 'invalid_input', details
 const iso = (d) => d && new Date(d).toISOString();
 const receiptNo = (p) => `SS-${new Date(p.paid_at || p.created_at).toISOString().slice(0, 10).replace(/-/g, '')}-${String(p.id).padStart(6, '0')}`;
 
-router.get('/payments/config', handle(async (_req, res) => res.json({ enabled: gw.configured(), keyId: gw.publicKeyId(), webhookConfigured: gw.webhookConfigured() })));
+router.get('/payments/config', handle(async (_req, res) => res.json({ enabled: gw.configured(), keyId: gw.publicKeyId(), webhookConfigured: gw.webhookConfigured(),
+  ...(await pay.feeSettings()), refundWindowMinutes: Number(await pay.getSetting('refund_window_minutes', '45')) })));
 
 // Start (or resume) payment for an accepted paid booking. The amount is read from the database, never from the request.
 router.post('/bookings/:id/pay', requireAuth, limit, handle(async (req, res) => {
@@ -72,8 +73,8 @@ const shape = (p, viewerId, refunds = []) => {
     paidAt: iso(p.paid_at), createdAt: iso(p.created_at), failureReason: mine ? p.failure_reason : undefined, gatewayPaymentId: p.gateway_payment_id,
     session: { id: p.session_id, title: p.title, startsAt: iso(p.starts_at) }, bookingId: p.booking_id,
     learner: { username: p.l_username, fullName: p.l_full_name }, mentor: { username: p.m_username, fullName: p.m_full_name },
-    // the platform fee and the mentor's net are the mentor's business, not the learner's
-    ...(!mine ? { platformFeePaise: p.platform_fee_paise, mentorNetPaise: p.mentor_net_paise, commissionPercent: Number(p.commission_percent) } : {}),
+    // the learner sees what they paid for (price + fee + GST); the mentor sees only what they receive
+    ...(mine ? { pricePaise: p.mentor_net_paise, platformFeePaise: p.platform_fee_paise, gstPaise: p.gst_paise, commissionPercent: Number(p.commission_percent) } : { mentorNetPaise: p.mentor_net_paise }),
     refunds: refunds.map((r) => ({ id: r.id, amountPaise: r.amount_paise, status: r.status, reason: r.reason, createdAt: iso(r.created_at), processedAt: iso(r.processed_at) })),
   };
 };
@@ -109,7 +110,7 @@ router.get('/earnings', handle(async (req, res) => {
   const summary = await pay.earnings(req.user.id);
   const [sales] = await pool.query(`${PAY_SELECT} WHERE p.mentor_id = ? AND p.status IN ('paid','refunded') ORDER BY p.id DESC LIMIT 50`, [req.user.id]);
   const [payouts] = await pool.query('SELECT id, amount_paise, destination, status, admin_note, requested_at, processed_at FROM payouts WHERE mentor_id = ? ORDER BY id DESC LIMIT 50', [req.user.id]);
-  res.json({ summary: { ...summary, minPayoutPaise: Number(await pay.getSetting('min_payout_paise', '10000')) },
+  res.json({ summary: { ...summary, minPayoutPaise: Number(await pay.getSetting('min_payout_paise', '0')) },
     sales: sales.map((p) => shape(p, req.user.id)),
     payouts: payouts.map((x) => ({ id: x.id, amountPaise: x.amount_paise, destination: x.destination, status: x.status, adminNote: x.admin_note, requestedAt: iso(x.requested_at), processedAt: iso(x.processed_at) })) });
 }));

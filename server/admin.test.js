@@ -139,7 +139,7 @@ test('settings are validated; catalog management protects data in use', async ()
   const admin = await makeUser('a6', { admin: true });
   const cur = (await call('/admin/settings', 'GET', null, admin)).body;
   assert.equal((await call('/admin/settings', 'PUT', { commission_percent: 90 }, admin)).status, 400);
-  assert.equal((await call('/admin/settings', 'PUT', { refund_window_hours: -1 }, admin)).status, 400);
+  assert.equal((await call('/admin/settings', 'PUT', { refund_window_minutes: -1 }, admin)).status, 400);
   assert.equal((await call('/admin/settings', 'PUT', { surprise: 1 }, admin)).status, 400); // unknown keys are refused
   assert.equal((await call('/admin/settings', 'PUT', { ranking_weights: { ...cur.defaults, skill: 0, level: 0, price: 0, availability: 0, language: 0, style: 0, rating: 0, completeness: 0 } }, admin)).status, 400);
   assert.equal((await call('/admin/settings', 'PUT', { commission_percent: cur.commission_percent, ranking_weights: cur.ranking_weights }, admin)).status, 200); // same values: proves the write path without disturbing parallel tests

@@ -87,7 +87,7 @@ test('happy path: amount from the DB, tamper-proof, verified with the gateway, c
   const b = await bid(learner);
   assert.equal((await startPay(other, b)).status, 404); assert.equal((await startPay(mentor, b)).status, 404); // only the booking's learner
   const o = await call(`/bookings/${b}/pay`, 'POST', { amountPaise: 1, amount: 1 }, learner); // a client-supplied amount is simply ignored
-  assert.equal(o.status, 200); assert.equal(o.body.amountPaise, 50000); assert.equal(o.body.keyId, 'rzp_test_abc'); assert.equal(G.orders.get(o.body.orderId).amount, 50000);
+  assert.equal(o.status, 200); assert.equal(o.body.amountPaise, 55900); /* ₹500 price + ₹50 fee + ₹9 GST */ assert.deepEqual([o.body.pricePaise, o.body.feePaise, o.body.gstPaise], [50000, 5000, 900]); assert.equal(o.body.keyId, 'rzp_test_abc'); assert.equal(G.orders.get(o.body.orderId).amount, 55900);
   assert.equal((await startPay(learner, b)).body.orderId, o.body.orderId); // resuming reuses the order
   G.orders.delete(o.body.orderId); // the keys changed (another Razorpay account): that order no longer exists there
   const fresh = (await startPay(learner, b)).body; assert.notEqual(fresh.orderId, o.body.orderId); assert.ok(G.orders.has(fresh.orderId));
@@ -100,7 +100,7 @@ test('happy path: amount from the DB, tamper-proof, verified with the gateway, c
   assert.equal(ok.status, 200); assert.equal(ok.body.confirmed, true);
   assert.equal(await bstatus(learner), 'confirmed');
   const p = await row('SELECT * FROM payments WHERE gateway_order_id = ?', [o.body.orderId]);
-  assert.deepEqual([p.status, p.amount_paise, p.platform_fee_paise, p.mentor_net_paise, Number(p.commission_percent)], ['paid', 50000, 5000, 45000, 10]);
+  assert.deepEqual([p.status, p.amount_paise, p.platform_fee_paise, p.gst_paise, p.mentor_net_paise, Number(p.commission_percent)], ['paid', 55900, 5000, 900, 50000, 10]); // the mentor keeps the whole price
   assert.ok((await notes(learner)).includes('payment_success')); assert.ok((await notes(mentor)).includes('booking_confirmed'));
   assert.equal((await call('/payments/verify', 'POST', proof, learner)).body.already, true); // idempotent
   const dup = await webhook('payment.captured', G.payments.get(proof.razorpay_payment_id), { id: 'evt_same' });
@@ -108,10 +108,11 @@ test('happy path: amount from the DB, tamper-proof, verified with the gateway, c
   assert.equal(dup.status, 200); assert.equal(dup2.body.duplicate, true);
   const [[{ n }]] = await pool.query("SELECT COUNT(*) n FROM payments WHERE booking_id = ? AND status = 'paid'", [b]); assert.equal(n, 1);
   // DB-level guard: even a buggy code path cannot mark a second payment paid for the same booking
-  await assert.rejects(pool.query("INSERT INTO payments (booking_id, learner_id, mentor_id, amount_paise, commission_percent, platform_fee_paise, mentor_net_paise, status, gateway_order_id) SELECT booking_id, learner_id, mentor_id, amount_paise, 10, 5000, 45000, 'paid', 'order_dup' FROM payments WHERE id = ?", [p.id]), /Duplicate/);
-  // history + receipts: the learner never sees the platform fee; the mentor does; outsiders see nothing
-  const hist = (await call('/payments', 'GET', null, learner)).body.payments; assert.equal(hist[0].receiptNo.startsWith('SS-'), true); assert.equal(hist[0].platformFeePaise, undefined);
-  assert.equal((await call(`/payments/${p.id}`, 'GET', null, mentor)).body.platformFeePaise, 5000);
+  await assert.rejects(pool.query("INSERT INTO payments (booking_id, learner_id, mentor_id, amount_paise, commission_percent, platform_fee_paise, gst_paise, mentor_net_paise, status, gateway_order_id) SELECT booking_id, learner_id, mentor_id, amount_paise, 10, platform_fee_paise, gst_paise, mentor_net_paise, 'paid', 'order_dup' FROM payments WHERE id = ?", [p.id]), /Duplicate/);
+  // history + receipts: the learner sees price + fee + GST; the mentor sees only what they receive; outsiders see nothing
+  const hist = (await call('/payments', 'GET', null, learner)).body.payments; assert.equal(hist[0].receiptNo.startsWith('SS-'), true);
+  assert.deepEqual([hist[0].pricePaise, hist[0].platformFeePaise, hist[0].gstPaise, hist[0].mentorNetPaise], [50000, 5000, 900, undefined]);
+  const asMentor = (await call(`/payments/${p.id}`, 'GET', null, mentor)).body; assert.deepEqual([asMentor.mentorNetPaise, asMentor.platformFeePaise, asMentor.gstPaise], [50000, undefined, undefined]);
   assert.equal((await call(`/payments/${p.id}`, 'GET', null, other)).status, 404);
   assert.equal((await call('/payments/abc', 'GET', null, learner)).status, 404);
 });
@@ -136,7 +137,7 @@ test('gateway truth wins: wrong amount, unpaid, authorized->captured, failed the
 
 test('webhooks: forged signature rejected; webhook alone confirms; failed event notifies; verify+webhook race confirms once', async () => {
   const s = await setup('d'); const b = await s.bid(s.learner); const o = (await startPay(s.learner, b)).body;
-  const fake = { id: `pay_${run}w1`, order_id: o.orderId, amount: 50000, currency: 'INR', status: 'captured', method: 'card' };
+  const fake = { id: `pay_${run}w1`, order_id: o.orderId, amount: 55900, currency: 'INR', status: 'captured', method: 'card' };
   assert.equal((await webhook('payment.captured', fake, { sign: false })).body.error, 'invalid_signature');
   assert.equal(await s.bstatus(s.learner), 'awaiting_payment');
   const failed = { ...fake, id: `pay_${run}w0`, status: 'failed', error_description: 'insufficient funds' };
@@ -160,12 +161,16 @@ test('refund policy: learner cancel inside/outside window, mentor cancel, mentor
   let c = await call(`/bookings/${await s.bid(s.learner)}/cancel`, 'POST', {}, s.learner);
   assert.equal(c.body.refund.refunded, true);
   let p = await row("SELECT p.* FROM payments p JOIN bookings b ON b.id = p.booking_id WHERE b.session_id = ?", [s.sid]);
-  assert.equal(p.status, 'refunded'); assert.equal((await row('SELECT amount_paise, status FROM refunds WHERE payment_id = ?', [p.id])).amount_paise, 50000);
-  assert.ok(G.refunds.some((r) => r.payment_id === p.gateway_payment_id && r.amount === 50000));
+  assert.equal(p.status, 'refunded'); assert.equal((await row('SELECT amount_paise, status FROM refunds WHERE payment_id = ?', [p.id])).amount_paise, 55900); // fee and GST come back too
+  assert.ok(G.refunds.some((r) => r.payment_id === p.gateway_payment_id && r.amount === 55900));
   assert.ok((await notes(s.learner)).includes('refund_processed'));
-  // <24h ahead: no refund (policy), money stays with the mentor side
+  // 46 minutes ahead: still inside the 45-minute window, full refund
+  s = await setup('f2', { hours: 48 }); await pay(s.learner, s);
+  await pool.query('UPDATE learning_sessions SET starts_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 46 MINUTE) WHERE id = ?', [s.sid]);
+  assert.equal((await call(`/bookings/${await s.bid(s.learner)}/cancel`, 'POST', {}, s.learner)).body.refund.refunded, true);
+  // 44 minutes ahead: too late, no refund (policy), money stays with the mentor side
   s = await setup('f', { hours: 48 }); await pay(s.learner, s);
-  await pool.query('UPDATE learning_sessions SET starts_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 HOUR) WHERE id = ?', [s.sid]);
+  await pool.query('UPDATE learning_sessions SET starts_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 44 MINUTE) WHERE id = ?', [s.sid]);
   c = await call(`/bookings/${await s.bid(s.learner)}/cancel`, 'POST', {}, s.learner);
   assert.equal(c.body.refund.refunded, false);
   assert.equal((await row("SELECT p.status FROM payments p JOIN bookings b ON b.id = p.booking_id WHERE b.session_id = ?", [s.sid])).status, 'paid');
@@ -192,7 +197,7 @@ test('refund failures are never lost; pending refunds finish via webhook; double
   assert.equal((await row('SELECT status FROM refunds WHERE payment_id = ?', [pid.id])).status, 'pending');
   assert.equal((await row('SELECT status FROM payments WHERE id = ?', [pid.id])).status, 'refunded');
   const rf = await row('SELECT gateway_refund_id FROM refunds WHERE payment_id = ?', [pid.id]);
-  assert.equal((await webhook('refund.processed', { refund_id: { id: rf.gateway_refund_id, payment_id: pid.gateway_payment_id, amount: 50000, status: 'processed' } })).status, 200);
+  assert.equal((await webhook('refund.processed', { refund_id: { id: rf.gateway_refund_id, payment_id: pid.gateway_payment_id, amount: 55900, status: 'processed' } })).status, 200);
   assert.equal((await row('SELECT status FROM refunds WHERE payment_id = ?', [pid.id])).status, 'processed');
   const before = G.refunds.length; await retryFailedRefunds(); assert.equal(G.refunds.length, before); // nothing is refunded twice
   G.refundMode = 'processed';
@@ -217,18 +222,18 @@ test('earnings: pending until the session is held; payouts bounded by balance, e
   const s = await setup('m'); const o = (await startPay(s.learner, await s.bid(s.learner))).body;
   await call('/payments/verify', 'POST', customerPays(o.orderId), s.learner);
   let e = (await call('/earnings', 'GET', null, s.mentor)).body.summary;
-  assert.deepEqual([e.grossPaise, e.feesPaise, e.netPaise, e.pendingPaise, e.availablePaise, e.balancePaise], [50000, 5000, 45000, 45000, 0, 0]);
+  assert.deepEqual([e.netPaise, e.pendingPaise, e.availablePaise, e.balancePaise], [50000, 50000, 0, 0]);
   assert.equal((await call('/payouts', 'POST', { amountPaise: 20000, destination: 'me@upi' }, s.mentor)).body.error, 'insufficient_balance'); // session not held yet
   assert.equal((await call('/earnings', 'GET', null, s.learner)).body.summary.netPaise, 0); // learners earn nothing here
   await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR) WHERE id = ?', [s.sid]);
   assert.equal((await call(`/sessions/${s.sid}/complete`, 'POST', {}, s.mentor)).status, 200);
-  e = (await call('/earnings', 'GET', null, s.mentor)).body.summary; assert.deepEqual([e.availablePaise, e.pendingPaise, e.balancePaise], [45000, 0, 45000]);
-  assert.equal((await call('/payouts', 'POST', { amountPaise: 5000, destination: 'me@upi' }, s.mentor)).body.error, 'below_minimum');
+  e = (await call('/earnings', 'GET', null, s.mentor)).body.summary; assert.deepEqual([e.availablePaise, e.pendingPaise, e.balancePaise], [50000, 0, 50000]);
+  assert.equal((await call('/payouts', 'POST', { amountPaise: 60000, destination: 'me@upi' }, s.mentor)).body.error, 'insufficient_balance'); // no minimum any more, only the balance limits it
   assert.equal((await call('/payouts', 'POST', { amountPaise: 20000, destination: 'x' }, s.mentor)).status, 400);
   const rs = await Promise.all([1, 2, 3].map(() => call('/payouts', 'POST', { amountPaise: 30000, destination: 'me@upi' }, s.mentor)));
-  assert.deepEqual(rs.map((r) => r.status).sort(), [201, 409, 409]); // 45000 balance cannot fund three 30000 requests
-  e = (await call('/earnings', 'GET', null, s.mentor)).body; assert.equal(e.summary.balancePaise, 15000); assert.equal(e.summary.requestedPaise, 30000);
-  assert.equal(e.payouts.length, 1); assert.equal(e.sales[0].platformFeePaise, 5000);
+  assert.deepEqual(rs.map((r) => r.status).sort(), [201, 409, 409]); // a 50000 balance cannot fund three 30000 requests
+  e = (await call('/earnings', 'GET', null, s.mentor)).body; assert.equal(e.summary.balancePaise, 20000); assert.equal(e.summary.requestedPaise, 30000);
+  assert.equal(e.payouts.length, 1); assert.deepEqual([e.sales[0].mentorNetPaise, e.sales[0].platformFeePaise], [50000, undefined]);
 });
 
 test('money-safety regressions: concurrent Pay clicks, partial-refund retry amount, lost refund reply', async () => {

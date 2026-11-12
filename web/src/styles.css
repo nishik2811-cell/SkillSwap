@@ -105,8 +105,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: n
 
 /* phones: the call takes the whole screen (the site header would otherwise push the controls off it), controls are icon-only */
 @media (max-width: 760px) {
-  .meet { position: fixed; inset: 0; height: auto; z-index: 60; }
-  .controls { gap: 6px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+  /* 100dvh = the part of the screen the browser isn't covering, so the controls stay above Safari's floating toolbar */
+  .meet { position: fixed; top: 0; left: 0; right: 0; height: 100dvh; z-index: 60; }
+  .meet .stage-wrap { min-height: 0; overflow: hidden; }
+  .controls { gap: 6px; padding: 10px 8px calc(16px + env(safe-area-inset-bottom)); flex: none; }
   .ctl { min-width: 44px; padding: 0 12px; } .ctl .lbl { display: none; }
   .stage .strip { grid-template-columns: 1fr; }
 }

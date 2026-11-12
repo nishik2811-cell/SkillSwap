@@ -75,7 +75,7 @@ export default function Landing() {
         <Link to="/" className="moa-logo">SKILLSWAP<sup>©26</sup></Link>
         <nav className="moa-mono" aria-label="Main">
           {user ? <><Link to="/discover" className="hide-s">Discover</Link><Link to="/dashboard">Dashboard</Link><button onClick={logout} className="hide-s">Log out</button></>
-            : <><Link to="/login" className="hide-s">Log in</Link><Link to="/register">Join</Link></>}
+            : <><Link to="/login">Log in</Link><Link to="/register" className="join-pill">Join</Link></>}
           <span className="hide-s">{time}</span>
           <button className="pill" onClick={toggleTheme} aria-pressed={theme === 'light'}>Theme <i /></button>
         </nav>

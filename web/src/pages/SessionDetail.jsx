@@ -9,12 +9,14 @@ import WhenPicker from '../components/WhenPicker.jsx';
 import PayButton from '../components/PayButton.jsx';
 import './sessiondetail.css';
 import { when, priceOf, STATUS_TEXT, Stars } from '../components/SessionBits.jsx';
+import { usePayConfig, windowText, feesFor, rupees as inr } from '../lib.js';
 
 const ERR = { full: 'This session is full.', already_booked: 'You already have a booking.', previously_declined: 'The mentor declined your earlier request.', not_bookable: 'This session is no longer open for booking.',
-  must_be_in_future: 'Pick a time at least 5 minutes from now.', overlaps_another_session: 'You have another session at that time.', capacity_below_bookings: 'Fewer seats than people already booked.', not_started_yet: "You can complete a session once it has started.", not_reviewable: "Reviews open after the session is completed." };
+  not_started_yet: 'You can mark it completed once a third of the session has passed.', must_be_in_future: 'Pick a time at least 5 minutes from now.', overlaps_another_session: 'You have another session at that time.', capacity_below_bookings: 'Fewer seats than people already booked.', not_started_yet: "You can complete a session once it has started.", not_reviewable: "Reviews open after the session is completed." };
 const msg = (x) => ERR[x.message] || errorText(x);
 
 export default function SessionDetail() {
+  const cfg = usePayConfig();
   const { id } = useParams(); const [s, setS] = useState(null); const [err, setErr] = useState(''); const [note, setNote] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback(() => api(`/sessions/${id}`).then(setS).catch((x) => setErr(x.status === 404 ? 'Session not found.' : msg(x))), [id]);
   useEffect(() => { load(); }, [load]);
@@ -25,7 +27,9 @@ export default function SessionDetail() {
   }, [socket, id, load]);
   const act = async (fn) => { setErr(''); setBusy(true); try { await fn(); await load(); } catch (x) { setErr(msg(x)); } finally { setBusy(false); } };
   if (!s) return <div className="wrap" style={{ padding: 32 }}><Alert>{err}</Alert>{!err && <div className="skeleton" />}</div>;
-  const started = new Date(s.startsAt) <= new Date(), open = s.status === 'scheduled' && !started, b = s.myBooking;
+  const t0 = new Date(s.startsAt).getTime(), now = Date.now();
+  const started = t0 <= now, open = s.status === 'scheduled' && now < t0 + s.durationMin * 60e3, b = s.myBooking; // a live session can still be joined until it ends
+  const completable = now >= t0 + (s.durationMin * 60e3) / 3; // the mentor is paid once a third of the session has passed
   return <div className="wrap stack sdetail">
     <header className="sd-head">
       <div className="sd-date"><b>{String(new Date(s.startsAt).getDate()).padStart(2, '0')}</b><span>{new Date(s.startsAt).toLocaleDateString([], { month: 'short', weekday: 'short' }).toUpperCase()}<br />{new Date(s.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
@@ -34,7 +38,9 @@ export default function SessionDetail() {
         <h1>{s.title}</h1>
         <div className="row sd-mentor"><Avatar user={s.mentor} /><div>with <Link to={`/u/${s.mentor.username}`}><b>{s.mentor.fullName}</b></Link>{s.mentor.rating.count > 0 && <div className="hint">★ {s.mentor.rating.avg.toFixed(1)} · {s.mentor.rating.count} reviews</div>}</div></div>
       </div>
-      <div className="sd-price"><b>{priceOf(s)}</b>{s.seatsLeft != null && <span>{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left</span>}</div>
+      <div className="sd-price"><b>{priceOf(s)}</b>
+        {s.pricing === 'paid' && cfg && !s.isMentor && <span>+ {inr(feesFor(s.pricePaise, cfg).fee)} fee + {inr(feesFor(s.pricePaise, cfg).gst)} GST</span>}
+        {s.seatsLeft != null && <span>{s.seatsLeft} seat{s.seatsLeft === 1 ? '' : 's'} left</span>}</div>
     </header>
     {s.description && <p style={{ whiteSpace: 'pre-wrap' }}>{s.description}</p>}
     {s.status === 'scheduled' && <div><a className="btn small ghost" href={`/api/v1/sessions/${id}/calendar.ics`} download>Add to calendar</a></div>}
@@ -49,8 +55,8 @@ export default function SessionDetail() {
       {(!b || b.status === 'cancelled') && open && s.seatsLeft === 0 && <div className="muted">This session is full.</div>}
       {b?.status === 'confirmed' && s.status === 'scheduled' && <RoomButton sessionId={s.id} />}
       {b?.status === 'awaiting_payment' && open && <PayButton bookingId={b.id} title={s.title} amountPaise={s.pricePaise} onPaid={load} />}
-      {b?.status === 'confirmed' && s.pricing === 'paid' && <div className="hint">Paid. <Link to="/wallet">See receipt</Link> · Full refund if you cancel at least 24 hours before the start.</div>}
-      {b && ['requested', 'awaiting_payment', 'confirmed'].includes(b.status) && open && <div><button className="btn small ghost" disabled={busy} onClick={() => window.confirm(b.status === 'confirmed' && s.pricing === 'paid' ? 'Cancel your booking? You get a full refund only if the session starts in 24 hours or more.' : 'Cancel your booking?') && act(() => api(`/bookings/${b.id}/cancel`, { method: 'POST', body: {} }))}>Cancel booking</button></div>}
+      {b?.status === 'confirmed' && s.pricing === 'paid' && <div className="hint">Paid. <Link to="/wallet">See receipt</Link> · Full refund if you cancel at least {windowText(cfg?.refundWindowMinutes ?? 45)} before the start. <Link to="/refunds">Refund policy</Link></div>}
+      {b && ['requested', 'awaiting_payment', 'confirmed'].includes(b.status) && open && <div><button className="btn small ghost" disabled={busy} onClick={() => window.confirm(b.status === 'confirmed' && s.pricing === 'paid' ? `Cancel your booking? You get a full refund only if the session starts in ${windowText(cfg?.refundWindowMinutes ?? 45)} or more.` : 'Cancel your booking?') && act(() => api(`/bookings/${b.id}/cancel`, { method: 'POST', body: {} }))}>Cancel booking</button></div>}
       {b?.status === 'completed' && !b.reviewed && <ReviewForm bookingId={b.id} who={s.mentor.fullName} onDone={load} />}
       {b?.reviewed && <div className="hint ok">Thanks for your review.</div>}
     </section>}
@@ -75,9 +81,9 @@ export default function SessionDetail() {
         <RoomButton sessionId={s.id} host />
         <Reschedule s={s} act={act} busy={busy} />
         <div className="row">
-          <button className="btn" disabled={busy || !started} title={started ? '' : 'Available once the session has started'} onClick={() => window.confirm('Mark this session as completed?') && act(() => api(`/sessions/${id}/complete`, { method: 'POST', body: {} }))}>Mark as completed</button>
+          <button className="btn" disabled={busy || !completable} title={completable ? '' : 'Available once a third of the session has passed'} onClick={() => window.confirm('Mark this session as completed?') && act(() => api(`/sessions/${id}/complete`, { method: 'POST', body: {} }))}>Mark as completed</button>
           <button className="btn ghost" disabled={busy} onClick={() => { const reason = window.prompt('Reason for cancelling (shared with learners):', ''); if (reason !== null) act(() => api(`/sessions/${id}/cancel`, { method: 'POST', body: { reason } })); }}>Cancel session</button>
-        </div>{!started && <p className="hint">You can mark it completed once it has started.</p>}</section>}
+        </div>{!completable && <p className="hint">You can mark it completed (and get paid) once a third of the session has passed.</p>}</section>}
     </>}
   </div>;
 }

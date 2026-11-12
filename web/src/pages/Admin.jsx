@@ -141,7 +141,7 @@ function Catalog({ setErr }) {
   </div>;
 }
 
-const NICE = { commission_percent: ['Commission (%)', 0, 50, 0.5], refund_window_hours: ['Full-refund window (hours before a session)', 0, 720, 1], unpaid_hold_hours: ['Hold an unpaid seat for (hours)', 1, 168, 1] };
+const NICE = { commission_percent: ['Platform fee charged to learners (%)', 0, 50, 0.5], gst_percent: ['GST on the platform fee (%)', 0, 40, 0.5], refund_window_minutes: ['Full-refund window (minutes before a session)', 0, 10080, 5], unpaid_hold_hours: ['Hold an unpaid seat for (hours)', 1, 168, 1] };
 function Settings({ setErr }) {
   const [d, reload] = useLoad('/admin/settings', setErr); const [f, setF] = useState(null); const [ok, setOk] = useState('');
   useEffect(() => { if (d) setF({ ...d, min_payout: d.min_payout_paise / 100 }); }, [d]);
@@ -150,7 +150,7 @@ function Settings({ setErr }) {
   async function save(e) {
     e.preventDefault(); setOk(''); setErr('');
     try {
-      await api('/admin/settings', { method: 'PUT', body: { commission_percent: Number(f.commission_percent), refund_window_hours: Number(f.refund_window_hours), unpaid_hold_hours: Number(f.unpaid_hold_hours), min_payout_paise: Math.round(Number(f.min_payout) * 100), ranking_weights: Object.fromEntries(Object.entries(w).map(([k, v]) => [k, Number(v)])) } });
+      await api('/admin/settings', { method: 'PUT', body: { commission_percent: Number(f.commission_percent), gst_percent: Number(f.gst_percent), refund_window_minutes: Number(f.refund_window_minutes), unpaid_hold_hours: Number(f.unpaid_hold_hours), min_payout_paise: Math.round(Number(f.min_payout) * 100), ranking_weights: Object.fromEntries(Object.entries(w).map(([k, v]) => [k, Number(v)])) } });
       setOk('Saved. Best Match uses the new weights on the next search.'); reload();
     } catch (x) { setErr(errorText(x)); }
   }
@@ -158,7 +158,7 @@ function Settings({ setErr }) {
     <Alert kind="ok">{ok}</Alert>
     <div className="card stack"><h3>Money</h3>
       {Object.entries(NICE).map(([k, [label, min, max, step]]) => <div className="field" key={k}><label htmlFor={k}>{label}</label><input id={k} type="number" min={min} max={max} step={step} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></div>)}
-      <div className="field"><label htmlFor="mp">Smallest payout (₹)</label><input id="mp" type="number" min="1" step="1" value={f.min_payout} onChange={(e) => setF({ ...f, min_payout: e.target.value })} /></div></div>
+      <div className="field"><label htmlFor="mp">Smallest payout (₹, 0 for none)</label><input id="mp" type="number" min="0" step="1" value={f.min_payout} onChange={(e) => setF({ ...f, min_payout: e.target.value })} /></div></div>
     <div className="card stack"><h3>Best Match weights</h3><p className="hint">How much each signal counts in the default ranking. They are scaled to add up to 100%, and signals with no data are skipped, not penalised.</p>
       {Object.keys(w).map((k) => <div className="field" key={k}><label htmlFor={`w-${k}`}>{k.replace(/_/g, ' ')} <b>{Math.round((Number(w[k]) / sum) * 100)}%</b></label>
         <input id={`w-${k}`} type="range" min="0" max="1" step="0.05" value={w[k]} onChange={(e) => setF({ ...f, ranking_weights: { ...w, [k]: e.target.value } })} /></div>)}

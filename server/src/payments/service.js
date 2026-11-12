@@ -9,8 +9,9 @@ export async function getSetting(key, fallback) {
   const [[r]] = await pool.query('SELECT value FROM platform_settings WHERE `key` = ?', [key]);
   return r ? r.value : fallback;
 }
-/** Platform fee in paise, rounded to the nearest paisa; the mentor gets the remainder, so the two always add up. */
-export const splitAmount = (amountPaise, percent) => { const fee = Math.round((amountPaise * Number(percent)) / 100); return { fee, net: amountPaise - fee }; };
+/** The mentor keeps their whole price; the learner pays a platform fee on top, plus GST on that fee. All in paise, rounded to the nearest paisa. */
+export const feesFor = (pricePaise, feePercent, gstPercent) => { const fee = Math.round((pricePaise * Number(feePercent)) / 100), gst = Math.round((fee * Number(gstPercent)) / 100); return { fee, gst, total: pricePaise + fee + gst }; };
+export const feeSettings = async () => ({ feePercent: Number(await getSetting('commission_percent', '10')), gstPercent: Number(await getSetting('gst_percent', '18')) });
 
 // ---------- order creation ----------
 export async function createOrderForBooking(user, bookingId) {
@@ -20,7 +21,7 @@ export async function createOrderForBooking(user, bookingId) {
   if (!b || b.learner_id !== user.id) throw httpErr(404, 'not_found');
   if (b.status !== 'awaiting_payment') throw httpErr(409, 'not_awaiting_payment');
   if (b.pricing !== 'paid' || b.s_status !== 'scheduled' || new Date(b.starts_at) <= new Date()) throw httpErr(409, 'not_payable');
-  const amount = b.price_paise; // from the database; there is no amount parameter for a client to tamper with
+  const price = b.price_paise; // from the database; there is no amount parameter for a client to tamper with
 
   // retrying a failed/unfinished attempt reuses the same gateway order
   const [[prev]] = await pool.query("SELECT * FROM payments WHERE booking_id = ? AND status IN ('created','failed') ORDER BY id DESC LIMIT 1", [b.id]);
@@ -28,25 +29,25 @@ export async function createOrderForBooking(user, bookingId) {
     // ...but only if that order still exists for the keys in use now: after switching Razorpay keys (a new account, or test -> live)
     // an old order id makes Checkout fail with "Something went wrong". No money moved on it, so drop it and start a fresh order.
     const alive = await gw.fetchOrder(prev.gateway_order_id).then(() => true, (e) => { if (e.status >= 400 && e.status < 500) return false; throw e; });
-    if (alive) return { paymentId: prev.id, orderId: prev.gateway_order_id, amountPaise: prev.amount_paise, currency: prev.currency, title: b.title };
+    if (alive) return { paymentId: prev.id, orderId: prev.gateway_order_id, amountPaise: prev.amount_paise, currency: prev.currency, title: b.title, pricePaise: prev.mentor_net_paise, feePaise: prev.platform_fee_paise, gstPaise: prev.gst_paise };
     await pool.query("DELETE FROM payments WHERE id = ? AND status IN ('created','failed')", [prev.id]);
   }
 
-  const pct = await getSetting('commission_percent', '10'); const { fee, net } = splitAmount(amount, pct);
+  const { feePercent: pct, gstPercent } = await feeSettings(); const { fee, gst, total: amount } = feesFor(price, pct, gstPercent);
   const order = await gw.createOrder({ amountPaise: amount, receipt: `bk${b.id}-${Date.now().toString(36)}`, notes: { booking_id: String(b.id), session_id: String(b.session_id) } });
   if (order.amount !== amount || order.currency !== 'INR') throw httpErr(502, 'gateway_amount_mismatch');
   let r;
   try {
     [r] = await pool.query(
-      'INSERT INTO payments (booking_id, learner_id, mentor_id, amount_paise, commission_percent, platform_fee_paise, mentor_net_paise, gateway_order_id) VALUES (?,?,?,?,?,?,?,?)',
-      [b.id, user.id, b.mentor_id, amount, pct, fee, net, order.id]);
+      'INSERT INTO payments (booking_id, learner_id, mentor_id, amount_paise, commission_percent, platform_fee_paise, gst_paise, mentor_net_paise, gateway_order_id) VALUES (?,?,?,?,?,?,?,?,?)',
+      [b.id, user.id, b.mentor_id, amount, pct, fee, gst, price, order.id]);
   } catch (e) {
     if (e.code !== 'ER_DUP_ENTRY' || !String(e.sqlMessage).includes('uq_one_open_payment')) throw e;
     // a simultaneous click won the race: use its order (our extra gateway order is simply never paid)
     const [[won]] = await pool.query("SELECT * FROM payments WHERE booking_id = ? AND status IN ('created','failed') ORDER BY id DESC LIMIT 1", [b.id]);
-    return { paymentId: won.id, orderId: won.gateway_order_id, amountPaise: won.amount_paise, currency: won.currency, title: b.title };
+    return { paymentId: won.id, orderId: won.gateway_order_id, amountPaise: won.amount_paise, currency: won.currency, title: b.title, pricePaise: won.mentor_net_paise, feePaise: won.platform_fee_paise, gstPaise: won.gst_paise };
   }
-  return { paymentId: r.insertId, orderId: order.id, amountPaise: amount, currency: 'INR', title: b.title };
+  return { paymentId: r.insertId, orderId: order.id, amountPaise: amount, currency: 'INR', title: b.title, pricePaise: price, feePaise: fee, gstPaise: gst };
 }
 
 // ---------- confirming a payment (called by BOTH the checkout verification and the webhook; idempotent) ----------
@@ -184,10 +185,10 @@ export async function applyRefundEvent(entity, failed = false) {
 
 /** Learner cancelled their own booking: full refund if far enough ahead, otherwise none (policy in platform_settings). */
 export async function refundForLearnerCancel(bookingId, startsAt) {
-  const windowH = Number(await getSetting('refund_window_hours', '24'));
-  const hoursLeft = (new Date(startsAt).getTime() - Date.now()) / 3_600_000;
-  if (hoursLeft >= windowH) { await refundForBooking(bookingId, { reason: 'Cancelled by learner within the refund window', initiatedBy: 'learner' }); return { refunded: true, windowHours: windowH }; }
-  return { refunded: false, windowHours: windowH };
+  const windowMin = Number(await getSetting('refund_window_minutes', '45'));
+  const minutesLeft = (new Date(startsAt).getTime() - Date.now()) / 60_000;
+  if (minutesLeft >= windowMin) { await refundForBooking(bookingId, { reason: 'Cancelled by learner within the refund window', initiatedBy: 'learner' }); return { refunded: true, windowMinutes: windowMin }; }
+  return { refunded: false, windowMinutes: windowMin };
 }
 
 /** Accepted-but-unpaid seats are released after a while so they don't block other learners. */
@@ -221,7 +222,7 @@ async function balanceOf(conn, userId) {
 export const earnings = (userId) => balanceOf(pool, userId);
 
 export async function requestPayout(user, amountPaise, destination) {
-  const min = Number(await getSetting('min_payout_paise', '10000'));
+  const min = Number(await getSetting('min_payout_paise', '0')); // 0 = no minimum
   if (amountPaise < min) throw httpErr(400, 'below_minimum');
   let id;
   await inTx(async (conn) => {

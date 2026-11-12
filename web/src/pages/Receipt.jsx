@@ -22,8 +22,10 @@ export default function Receipt() {
         <tr><td>Session time</td><td>{dt(p.session.startsAt)}</td></tr>
         <tr><td>Payment method</td><td>{(p.method || '—').toUpperCase()}</td></tr>
         <tr><td>Reference</td><td>{p.gatewayPaymentId}</td></tr>
+        {p.pricePaise != null && <><tr><td>Session price</td><td>{rupees(p.pricePaise)}</td></tr><tr><td>Platform fee ({p.commissionPercent}%)</td><td>{rupees(p.platformFeePaise)}</td></tr>
+          {p.gstPaise > 0 && <tr><td>GST on the platform fee</td><td>{rupees(p.gstPaise)}</td></tr>}</>}
         <tr><td><b>Total paid</b></td><td><b>{rupees(p.amountPaise)}</b> {p.currency}</td></tr>
-        {p.platformFeePaise != null && <><tr><td>Platform fee ({p.commissionPercent}%)</td><td>{rupees(p.platformFeePaise)}</td></tr><tr><td>Mentor earnings</td><td>{rupees(p.mentorNetPaise)}</td></tr></>}
+        {p.mentorNetPaise != null && <tr><td><b>Your earnings</b></td><td><b>{rupees(p.mentorNetPaise)}</b></td></tr>}
         {p.refunds.map((r) => <tr key={r.id}><td>Refund ({r.status})</td><td>− {rupees(r.amountPaise)}</td></tr>)}
       </tbody></table>
       <div className="no-print"><button className="btn small" onClick={() => window.print()}>Print or save as PDF</button></div>

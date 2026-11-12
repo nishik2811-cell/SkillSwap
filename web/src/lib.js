@@ -49,3 +49,13 @@ export function toPayloads(f, finish) {
     },
   };
 }
+
+// Payment settings from the server (fee %, GST %, refund window). The maths below mirrors server/src/payments/service.js feesFor.
+let payCfg;
+export function usePayConfig() {
+  const [c, setC] = useState(payCfg || null);
+  useEffect(() => { if (!payCfg) api('/payments/config').then((r) => { payCfg = r; setC(r); }).catch(() => {}); }, []);
+  return c;
+}
+export const feesFor = (pricePaise, cfg) => { const fee = Math.round((pricePaise * cfg.feePercent) / 100), gst = Math.round((fee * cfg.gstPercent) / 100); return { fee, gst, total: pricePaise + fee + gst }; };
+export const windowText = (min) => (min >= 60 && min % 60 === 0 ? `${min / 60} hour${min === 60 ? '' : 's'}` : `${min} minutes`);

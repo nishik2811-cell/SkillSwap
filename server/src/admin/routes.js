@@ -24,7 +24,7 @@ router.get('/admin/overview', wrap(async (_req, res) => {
     users: await one("SELECT COUNT(*) FROM users"), activeUsers: await one("SELECT COUNT(*) FROM users WHERE status = 'active'"), suspendedUsers: await one("SELECT COUNT(*) FROM users WHERE status = 'suspended'"),
     upcomingSessions: await one("SELECT COUNT(*) FROM learning_sessions WHERE status = 'scheduled' AND starts_at > UTC_TIMESTAMP()"), completedSessions: await one("SELECT COUNT(*) FROM learning_sessions WHERE status = 'completed'"),
     openReports: await one("SELECT COUNT(*) FROM reports WHERE status = 'open'"), openDisputes: await one("SELECT COUNT(*) FROM disputes WHERE status = 'open'"), pendingPayouts: await one("SELECT COUNT(*) FROM payouts WHERE status = 'requested'"),
-    grossPaise: Number(await one("SELECT COALESCE(SUM(amount_paise),0) FROM payments WHERE status = 'paid'")), platformFeesPaise: Number(await one("SELECT COALESCE(SUM(platform_fee_paise),0) FROM payments WHERE status = 'paid'")),
+    grossPaise: Number(await one("SELECT COALESCE(SUM(amount_paise),0) FROM payments WHERE status = 'paid'")), platformFeesPaise: Number(await one("SELECT COALESCE(SUM(platform_fee_paise),0) FROM payments WHERE status = 'paid'")), gstPaise: Number(await one("SELECT COALESCE(SUM(gst_paise),0) FROM payments WHERE status = 'paid'")),
     refundedPaise: Number(await one("SELECT COALESCE(SUM(amount_paise),0) FROM refunds WHERE status IN ('pending','processed')")), failedRefunds: await one("SELECT COUNT(*) FROM refunds WHERE status = 'failed'"),
   });
 }));
@@ -135,13 +135,13 @@ router.post('/admin/payouts/:id/reject', payoutAction('rejected'));
 
 // ---------- platform settings (commission, policies, ranking weights) ----------
 const SETTINGS = z.object({
-  commission_percent: z.number().min(0).max(50).optional(), refund_window_hours: z.number().int().min(0).max(720).optional(),
-  unpaid_hold_hours: z.number().int().min(1).max(168).optional(), min_payout_paise: z.number().int().min(100).max(10_000_000).optional(),
+  commission_percent: z.number().min(0).max(50).optional(), refund_window_minutes: z.number().int().min(0).max(10080).optional(), gst_percent: z.number().min(0).max(40).optional(),
+  unpaid_hold_hours: z.number().int().min(1).max(168).optional(), min_payout_paise: z.number().int().min(0).max(10_000_000).optional(),
   ranking_weights: z.object(Object.fromEntries(Object.keys(DEFAULT_WEIGHTS).map((k) => [k, z.number().min(0).max(1)]))).refine((w) => Object.values(w).some((v) => v > 0), 'at least one weight must be above 0').optional(),
 }).strict();
 router.get('/admin/settings', wrap(async (_req, res) => {
   const [rows] = await pool.query('SELECT `key`, value FROM platform_settings'); const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  res.json({ commission_percent: Number(m.commission_percent ?? 10), refund_window_hours: Number(m.refund_window_hours ?? 24), unpaid_hold_hours: Number(m.unpaid_hold_hours ?? 24), min_payout_paise: Number(m.min_payout_paise ?? 10000),
+  res.json({ commission_percent: Number(m.commission_percent ?? 10), refund_window_minutes: Number(m.refund_window_minutes ?? 45), gst_percent: Number(m.gst_percent ?? 18), unpaid_hold_hours: Number(m.unpaid_hold_hours ?? 24), min_payout_paise: Number(m.min_payout_paise ?? 0),
     ranking_weights: m.ranking_weights ? JSON.parse(m.ranking_weights) : DEFAULT_WEIGHTS, defaults: DEFAULT_WEIGHTS });
 }));
 router.put('/admin/settings', wrap(async (req, res) => {

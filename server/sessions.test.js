@@ -62,7 +62,9 @@ test('free individual flow: request -> notify -> accept -> confirmed -> complete
   assert.equal((await call(`/sessions/${id}/book`, 'POST', {}, x)).body.error, 'full'); // capacity 1
   assert.equal((await call(`/bookings/${bid}/review`, 'POST', { rating: 5 }, l)).body.error, 'not_reviewable'); // not held yet
   assert.equal((await call(`/sessions/${id}/complete`, 'POST', {}, m)).body.error, 'not_started_yet');
-  await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(NOW(), INTERVAL 2 HOUR) WHERE id = ?', [id]); // time travel
+  await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(NOW(), INTERVAL 10 MINUTE), duration_min = 60 WHERE id = ?', [id]); // started, but under a third done
+  assert.equal((await call(`/sessions/${id}/complete`, 'POST', {}, m)).body.error, 'not_started_yet');
+  await pool.query('UPDATE learning_sessions SET starts_at = DATE_SUB(NOW(), INTERVAL 21 MINUTE) WHERE id = ?', [id]); // past a third of 60 minutes
   assert.equal((await call(`/sessions/${id}/complete`, 'POST', {}, l)).status, 404);
   assert.equal((await call(`/sessions/${id}/complete`, 'POST', {}, m)).status, 200);
   assert.ok((await notes(l)).includes('session_completed'));
