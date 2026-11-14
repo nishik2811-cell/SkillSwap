@@ -89,8 +89,17 @@ export function WhenSection({ f, setF }) {
   </div>;
 }
 
+// Mirrors server prefs/profile schemas (server/src/people/routes.js): HTML min/max on number inputs isn't enforced without a form submit.
+const intIn = (v, lo, hi) => v === '' || (Number.isInteger(+v) && +v >= lo && +v <= hi);
 export function validatePrefs(f) {
-  for (const s of Object.values(f.mentor)) if (s.pricing !== 'free' && (s.minRupees === '' || s.maxRupees === '' || +s.minRupees > +s.maxRupees)) return 'Set a valid price range (min ≤ max) for each paid skill.';
+  for (const s of Object.values(f.mentor)) {
+    if (s.pricing !== 'free' && (s.minRupees === '' || s.maxRupees === '' || +s.minRupees < 0 || +s.minRupees > +s.maxRupees)) return 'Set a valid price range (min ≤ max) for each paid skill.';
+    if (!intIn(s.yearsExperience, 0, 80)) return 'Years of experience must be a whole number from 0 to 80.';
+  }
+  for (const s of Object.values(f.learner)) if (s.prefers !== 'free' && s.maxRupees !== '' && +s.maxRupees < 0) return 'Max budget can’t be negative.';
   if (!f.fullName.trim()) return 'Please enter your name.';
+  if (f.fullName.trim().length > 100) return 'Name can be at most 100 characters.';
+  if (!intIn(f.age, 13, 120)) return 'Age must be a whole number from 13 to 120.';
+  if (f.location.trim().length > 100) return 'Location can be at most 100 characters.';
   return '';
 }

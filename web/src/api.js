@@ -29,4 +29,9 @@ const MESSAGES = {
   invalid_input: 'Some fields need fixing.',
   account_inactive: 'This account is not active.',
 };
-export const errorText = (e) => MESSAGES[e?.message] || 'Something went wrong. Please try again.';
+const FIELD = { fullName: 'name', mentorSkills: 'mentor skills', learnerSkills: 'learning skills', yearsExperience: 'years of experience' };
+export const errorText = (e) => {
+  const keys = e?.message === 'invalid_input' ? Object.keys(e.body?.details || {}) : [];
+  if (keys.length) return `Please check: ${keys.map((k) => FIELD[k] || k).join(', ')}.`;
+  return MESSAGES[e?.message] || 'Something went wrong. Please try again.';
+};
